@@ -11,7 +11,6 @@ import java.nio.file.Files;
 
 final public class IO {
 
-
 	public static void write( File out, byte[] data ) {
 		try {
 			Files.write( out.toPath(), data);
@@ -85,6 +84,9 @@ final public class IO {
 			x.printStackTrace();
 			return new byte[0];
 		}
-		
+	}
+
+	public static String read(byte[] data) {
+		return new String(data);
 	}
 }
