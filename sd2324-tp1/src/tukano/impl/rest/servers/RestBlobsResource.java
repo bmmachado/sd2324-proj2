@@ -1,12 +1,13 @@
 package tukano.impl.rest.servers;
 
 import static tukano.impl.rest.servers.RestBlobsServer.ignoreDropboxState;
-
+import jakarta.inject.Singleton;
 import tukano.impl.api.java.ExtendedBlobs;
 import tukano.impl.api.rest.RestExtendedBlobs;
 import tukano.impl.java.servers.JavaBlobs;
 import tukano.impl.java.servers.JavaBlobsDropbox;
 
+@Singleton
 public class RestBlobsResource extends RestResource implements RestExtendedBlobs {
 
     final ExtendedBlobs impl;
