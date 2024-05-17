@@ -1,6 +1,10 @@
 package tukano.impl.java.clients;
 
+import java.io.IOException;
 import java.net.URI;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
@@ -30,19 +34,20 @@ public class ClientFactory<T> {
 				}
 			});
 	
-	ClientFactory( String serviceName, Function<String, T> restClientFunc, Function<String, T> grpcClientFunc) {
+	ClientFactory( String serviceName, Function<String, T> restClientFunc, Function<String, T> grpcClientFunc)  {
 		this.restClientFunc = restClientFunc;
 		this.grpcClientFunc = grpcClientFunc;
 		this.serviceName = serviceName;
 	}
 	
-	private T newClient( String serverURI ) {
+	private T newClient( String serverURI ){
+
 		if (serverURI.endsWith(REST))
 			return restClientFunc.apply( serverURI );
 		else if (serverURI.endsWith(GRPC))
-			return grpcClientFunc.apply( serverURI );
+            return grpcClientFunc.apply(serverURI);
 		else
-			throw new RuntimeException("Unknown service type..." + serverURI);	
+			throw new RuntimeException("Unknown service type..." + serverURI);
 	}
 	
 	public T get() {

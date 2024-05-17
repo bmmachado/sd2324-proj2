@@ -3,6 +3,10 @@ package tukano.impl.grpc.clients;
 import static tukano.impl.grpc.common.DataModelAdaptor.GrpcUser_to_User;
 import static tukano.impl.grpc.common.DataModelAdaptor.User_to_GrpcUser;
 
+import java.io.IOException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,7 +24,7 @@ public class GrpcUsersClient extends GrpcClient implements Users {
 
 	final UsersGrpc.UsersBlockingStub stub;
 
-	public GrpcUsersClient(String serverURI) {
+	public GrpcUsersClient(String serverURI) throws CertificateException, KeyStoreException, IOException, NoSuchAlgorithmException {
 		super(serverURI);
 		this.stub = UsersGrpc.newBlockingStub( super.channel );	
 	}
