@@ -16,6 +16,23 @@ import io.grpc.Status.Code;
 import tukano.api.java.Result;
 import tukano.api.java.Result.ErrorCode;
 
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
+import java.util.logging.Logger;
+import java.io.FileInputStream;
+import java.net.InetAddress;
+import java.security.KeyStore;
+
+import javax.net.ssl.TrustManagerFactory;
+
+import io.grpc.netty.GrpcSslContexts;
+import io.grpc.netty.NettyChannelBuilder;
+import io.netty.handler.ssl.SslContextBuilder;
+
 public class GrpcClient {
 
 	final protected URI serverURI;
@@ -23,8 +40,22 @@ public class GrpcClient {
 
 	protected GrpcClient(String serverUrl) {
 		this.serverURI = URI.create(serverUrl);
-		this.channel = ManagedChannelBuilder.forAddress(serverURI.getHost(), serverURI.getPort())
-				.usePlaintext().enableRetry().build();
+
+    var trustStore = System.getProperty("javax.net.ssl.trustStore");
+    var trustStorePassword = System.getProperty("javax.net.ssl.trustStorePassword");
+
+    var keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+    try (var in = new FileInputStream(trustStore)) {
+      keystore.load(in, trustStorePassword.toCharArray());
+    }
+    				
+    var trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+    trustManagerFactory.init(keystore);
+    
+    var scb = SslContextBuilder.forClient().trustManager(trustManagerFactory);
+    var sslContext = GrpcSslContexts.configure( scb ).build();
+    	
+    var channel = NettyChannelBuilder.forAddress(serverURI.getHost(), serverURI.getPort()).sslContext(sslContext).build();	
 	}
 	
 	protected <T> Result<T> toJavaResult(Supplier<T> func) {
