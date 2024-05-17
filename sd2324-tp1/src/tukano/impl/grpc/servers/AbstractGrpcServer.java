@@ -3,6 +3,15 @@ package tukano.impl.grpc.servers;
 
 import java.io.IOException;
 import java.util.logging.Logger;
+import java.io.FileInputStream;
+import java.net.InetAddress;
+import java.security.KeyStore;
+
+import javax.net.ssl.KeyManagerFactory;
+
+import io.grpc.netty.GrpcSslContexts;
+import io.grpc.netty.NettyServerBuilder;
+import io.netty.handler.ssl.SslContextBuilder;
 
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
@@ -19,12 +28,28 @@ public class AbstractGrpcServer extends AbstractServer {
 	protected final Server server;
 
 	protected AbstractGrpcServer(Logger log, String service, int port, AbstractGrpcStub stub) {
+
 		super(log, service, String.format(SERVER_BASE_URI, IP.hostAddress(), port, GRPC_CTX));
-		this.server = ServerBuilder.forPort(port).addService(stub).build();
+
+    var keyStore = System.getProperty("javax.net.ssl.keyStore");
+    var keyStorePassword = System.getProperty("javax.net.ssl.keyStorePassword");
+
+    var keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+
+    try (var in = new FileInputStream(keyStore)) {
+    	keystore.load(in, keyStorePassword.toCharArray());
+    }
+
+    var keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+    keyManagerFactory.init(keystore, keyStorePassword.toCharArray());
+
+    var sslContext = GrpcSslContexts.configure(SslContextBuilder.forServer(keyManagerFactory)).build();
+
+    this.server = NettyServerBuilder.forPort(port).addService(stub).sslContext(sslContext).build();
 	}
 
 	protected void start() throws IOException {
-		
+
 		Discovery.getInstance().announce(service, super.serverURI);
 		
 		Log.info(String.format("%s gRPC Server ready @ %s\n", service, serverURI));
