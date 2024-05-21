@@ -9,16 +9,16 @@ import com.github.scribejava.core.oauth.OAuth20Service;
 import com.google.gson.Gson;
 import org.pac4j.scribe.builder.api.DropboxApi20;
 import tukano.impl.api.dropbox.*;
-import tukano.impl.java.servers.JavaBlobs;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Logger;
 
 final public class ExternalServices {
+
+    public static final String BLOBS_DROPBOX = "/tukano/"+ IP.hostName();
+    public static final String DROPBOX_ROOT = "/tukano";
     private static Logger Log = Logger.getLogger(ExternalServices.class.getName());
     public static final int HTTP_SUCCESS = 200;
     protected static final int HTTP_CONFLIT = 409;
@@ -138,6 +138,9 @@ final public class ExternalServices {
 
             r = service.execute(listDirectory);
 
+            if (r.getCode() == HTTP_CONFLIT)
+                return new LinkedList<>();
+
             if (r.getCode() != HTTP_SUCCESS)
                 throw new RuntimeException(String.format("Failed to list directory: %s, Status: %d, \nReason: %s\n", directoryName, r.getCode(), r.getBody()));
 
@@ -146,6 +149,21 @@ final public class ExternalServices {
         }
 
         return directoryContents;
+    }
+
+    public static void cleanDropbox() {
+        ExternalServices newService = new ExternalServices();
+        var all = new DeleteAllArgs(new LinkedList<>());
+        all.addEntries(DROPBOX_ROOT);
+        try {
+            Response response = newService.delete(all.getEntries());
+            if (response.getCode() == HTTP_SUCCESS)
+                Log.info("Deleting all from Dropbox\n ");
+            if (response.getCode() == HTTP_CONFLIT)
+                Log.info("Nothing to delete\n ");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }

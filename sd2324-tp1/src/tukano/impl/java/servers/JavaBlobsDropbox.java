@@ -1,7 +1,8 @@
 package tukano.impl.java.servers;
 
 
-import static tukano.impl.rest.servers.RestBlobsServer.BLOBS_DROPBOX;
+
+import static utils.ExternalServices.BLOBS_DROPBOX;
 import static utils.ExternalServices.HTTP_SUCCESS;
 import static tukano.api.java.Result.ErrorCode.*;
 import static tukano.api.java.Result.error;
@@ -20,7 +21,6 @@ import tukano.impl.java.clients.Clients;
 import utils.*;
 
 public class JavaBlobsDropbox implements ExtendedBlobs {
-    private static final String ADMIN_TOKEN = Args.valueOf("-token", "");
 
    // private static final String BLOBS_ROOT_DIR = DROPBOX_ROOT+"/"+ IP.hostName()+"/";
     private static final String BLOBS_ROOT_DIR = BLOBS_DROPBOX +"/";
