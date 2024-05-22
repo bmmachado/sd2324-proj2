@@ -1,7 +1,11 @@
 package tukano.impl.grpc.clients;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.URI;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
 import java.util.function.Consumer;
 
 import com.google.protobuf.ByteString;
@@ -18,7 +22,7 @@ public class GrpcBlobsClient extends GrpcClient implements ExtendedBlobs {
 
 	final BlobsGrpc.BlobsBlockingStub stub;
 
-	public GrpcBlobsClient(String serverURI) {
+	public GrpcBlobsClient(String serverURI) throws CertificateException, KeyStoreException, IOException, NoSuchAlgorithmException {
 		super(serverURI);
 		this.stub = BlobsGrpc.newBlockingStub( super.channel );
 	}

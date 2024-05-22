@@ -3,11 +3,11 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>sd2324</groupId>
-	<artifactId>sd2324-tp1</artifactId>
+	<artifactId>sd2324-tukano</artifactId>
 	<version>1</version>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<authors>xxxxx-yyyyy</authors>
+		<authors>52164-56755</authors>
 	</properties>
 	<build>
 		<sourceDirectory>src</sourceDirectory>
@@ -136,6 +136,11 @@
 			<groupId>javax.annotation</groupId>
 			<artifactId>javax.annotation-api</artifactId>
 			<version>1.3.2</version>
-		</dependency>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-netty</artifactId>
+      <version>1.63.0</version>
+    </dependency>
 	</dependencies>
 </project>

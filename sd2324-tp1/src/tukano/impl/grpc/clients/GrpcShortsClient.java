@@ -2,6 +2,10 @@ package tukano.impl.grpc.clients;
 
 import static tukano.impl.grpc.common.DataModelAdaptor.GrpcShort_to_Short;
 
+import java.io.IOException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
 import java.util.List;
 
 import tukano.api.Short;
@@ -23,7 +27,7 @@ public class GrpcShortsClient extends GrpcClient implements ExtendedShorts {
 
 	final ShortsGrpc.ShortsBlockingStub stub;
 
-	public GrpcShortsClient(String serverURI) {
+	public GrpcShortsClient(String serverURI) throws CertificateException, KeyStoreException, IOException, NoSuchAlgorithmException {
 		super(serverURI);
 		this.stub = ShortsGrpc.newBlockingStub( super.channel );	
 	}
