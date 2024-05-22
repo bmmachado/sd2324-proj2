@@ -25,7 +25,7 @@ import tukano.impl.java.clients.Clients;
 import utils.*;
 
 public class JavaBlobs implements ExtendedBlobs {
-	private static final String ADMIN_TOKEN = Args.valueOf("-token", "");
+	private static final String ADMIN_TOKEN = Props.getValue("SHARED_SECRET");
 	
 	private static final String BLOBS_ROOT_DIR = "/tmp/blobs/";
 	
@@ -34,10 +34,10 @@ public class JavaBlobs implements ExtendedBlobs {
 	private static final int CHUNK_SIZE = 4096;
 
 	@Override
-	public Result<Void> upload(String blobId, byte[] bytes) {
-		Log.info(() -> format("upload : blobId = %s, sha256 = %s\n", blobId, Hex.of(Hash.sha256(bytes))));
+	public Result<Void> upload(String blobId, byte[] bytes, long timelimit, String verifier) {
+		Log.info(() -> format("upload : blobId = %s, sha256 = %s\n", timelimit, blobId, Hex.of(Hash.sha256(bytes))));
 
-		if (!validBlobId(blobId))
+		if(!validToken(timelimit, verifier))
 			return error(FORBIDDEN);
 
 		var file = toFilePath(blobId);
@@ -56,9 +56,17 @@ public class JavaBlobs implements ExtendedBlobs {
 	}
 
 	@Override
-	public Result<byte[]> download(String blobId) {
+	public Result<byte[]> download(String blobId, long timelimit, String verifier) {
 		Log.info(() -> format("download : blobId = %s\n", blobId));
 
+		if(!validToken(timelimit, verifier))
+			return error(FORBIDDEN);
+
+		return download(blobId);
+	}
+
+	@Override
+	public Result<byte[]> download(String blobId) {
 		var file = toFilePath(blobId);
 		if (file == null)
 			return error(BAD_REQUEST);
@@ -143,5 +151,13 @@ public class JavaBlobs implements ExtendedBlobs {
 		res.getParentFile().mkdirs();
 
 		return res;
+	}
+
+	private boolean validToken(long timelimit, String secret) {
+
+		if (timelimit < System.currentTimeMillis())
+			return false;
+
+		return Hash.sha256(IP.hostAddress(), String.valueOf(timelimit), ADMIN_TOKEN).equals(secret);
 	}
 }

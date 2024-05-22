@@ -2,6 +2,7 @@ package utils;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 
 public class Hash {
 		static MessageDigest md5;
@@ -31,5 +32,9 @@ public class Hash {
 			sha256.reset();
 			sha256.update( data == null ? new byte[0] : data );
 			return sha256.digest();
+		}
+
+		public static String sha256(String url, String timeLimit, String secret) {
+			return Hex.of(sha256((url + timeLimit + secret).getBytes()));
 		}
 }

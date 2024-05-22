@@ -19,6 +19,8 @@ service Blobs {
 message UploadArgs {
 	 string blobId = 1;
 	 bytes data = 2;
+	 int64 timestamp = 3;
+	 string verifier = 4;
 }
 
 message UploadResult {
@@ -26,6 +28,8 @@ message UploadResult {
 
 message DownloadArgs {
 	 string blobId = 1;
+	 int64 timestamp = 2;
+	 string verifier = 3;
 }
 
 message DownloadResult {
@@ -35,6 +39,8 @@ message DownloadResult {
 message DeleteArgs {
 	 string blobId = 1;
 	 string token = 2;
+	int64 timestamp = 3;
+	string verifier = 4;
 }
 
 message DeleteResult {
@@ -43,6 +49,8 @@ message DeleteResult {
 message DeleteAllBlobsArgs {
 	 string userId = 1;
 	 string token = 2;
+	int64 timestamp = 3;
+	string verifier = 4;
 }
 
 message DeleteAllBlobsResult {

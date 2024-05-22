@@ -13,7 +13,9 @@ public interface RestExtendedBlobs extends RestBlobs {
 	String BLOBS = "blobs";
 	String USER_ID = "userId";
 
-	@DELETE
+    void upload(String blobId, byte[] bytes, long timestamp, String verifier);
+
+    @DELETE
 	@Path("/{" + BLOB_ID + "}")
 	void delete(@PathParam(BLOB_ID) String blobId, @QueryParam(TOKEN) String token );		
 
