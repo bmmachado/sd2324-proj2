@@ -12,5 +12,6 @@ fi
 
 #execute the client with the given command line parameters
 docker pull nunopreguica/sd2324-tester-tp2
+docker pull smduarte/sd2324-kafka:latest
 docker run --rm --network=sdnet -it -v /var/run/docker.sock:/var/run/docker.sock nunopreguica/sd2324-tester-tp2:latest $*
 
