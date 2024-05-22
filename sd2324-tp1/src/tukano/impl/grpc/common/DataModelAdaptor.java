@@ -25,7 +25,7 @@ public class DataModelAdaptor {
 	}
 
 	public static Short GrpcShort_to_Short( GrpcShort from )  {
-		return new Short( from.getShortId(), from.getOwnerId(), from.getBlobUrl(), from.getTimestamp(), from.getTotalLikes(), from.getTimeLimit(), from.getToken());
+		return new Short( from.getShortId(), from.getOwnerId(), from.getBlobUrl(), from.getTimestamp(), from.getTotalLikes() );
 	}
 
 	public static GrpcShort Short_to_GrpcShort( Short from )  {
@@ -35,8 +35,6 @@ public class DataModelAdaptor {
 				.setBlobUrl( from.getBlobUrl() )
 				.setTimestamp( from.getTimestamp() )
 				.setTotalLikes( from.getTotalLikes() )
-				.setTimeLimit( from.getTimeLimit() )
-				.setToken( from.getToken() )
 				.build();
 	}
 

@@ -34,8 +34,6 @@ message GrpcShort {
 	string blobUrl = 3;
 	int64 timestamp = 4;
 	int32 totalLikes = 5;
-	int64 timeLimit = 6;
-	string token = 7;
 }
 
 message CreateShortArgs {

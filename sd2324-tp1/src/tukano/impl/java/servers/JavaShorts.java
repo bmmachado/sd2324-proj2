@@ -13,10 +13,8 @@ import static tukano.api.java.Result.ErrorCode.TIMEOUT;
 import static tukano.impl.java.clients.Clients.BlobsClients;
 import static tukano.impl.java.clients.Clients.UsersClients;
 import static utils.DB.getOne;
-import static utils.Hash.sha256;
 
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -35,18 +33,25 @@ import tukano.api.java.Result;
 import tukano.impl.api.java.ExtendedShorts;
 import tukano.impl.java.servers.data.Following;
 import tukano.impl.java.servers.data.Likes;
-import utils.*;
+import utils.DB;
+import utils.Hash;
+import utils.Props;
+import utils.Token;
 
 public class JavaShorts implements ExtendedShorts {
+	private static final String BLOB_COUNT = "*";
+
+	private static Logger Log = Logger.getLogger(JavaShorts.class.getName());
 
 	private static final String ADMIN_TOKEN = Props.getValue("SHARED_SECRET");
-	private static final String BLOB_COUNT = "*";
-	private static Logger Log = Logger.getLogger(JavaShorts.class.getName());
+
 	AtomicLong counter = new AtomicLong( totalShortsInDatabase() );
+
 	private static final long USER_CACHE_EXPIRATION = 3000;
 	private static final long SHORTS_CACHE_EXPIRATION = 3000;
 	private static final long BLOBS_USAGE_CACHE_EXPIRATION = 10000;
-	private static final long BLOBS_TRANSFER_TIMEOUT = 60000;
+
+	private static final long BLOBS_TRANSFER_TIMEOUT = 600000;
 
 
 	static record Credentials(String userId, String pwd) {
@@ -102,15 +107,25 @@ public class JavaShorts implements ExtendedShorts {
 		Log.info(() -> format("createShort : userId = %s, pwd = %s\n", userId, password));
 
 		return errorOrResult( okUser(userId, password), user -> {
-			
-			var shortId = format("%s-%d", userId, counter.incrementAndGet());
-			var blobUrl = format("%s/%s/%s", getLeastLoadedBlobServerURI(), Blobs.NAME, shortId);
-			var shrt = new Short(shortId, userId, blobUrl);
-			var timelimit  = System.currentTimeMillis()+BLOBS_TRANSFER_TIMEOUT;
-			shrt.setToken(getAdminToken(timelimit, blobUrl));
-			shrt.setTimeLimit(timelimit);
 
-			return DB.insertOne(shrt);
+			var shortId = format("%s-%d", userId, counter.incrementAndGet());
+			var blobServerURI = getLeastLoadedBlobServerURI();
+			var timeLimit  = System.currentTimeMillis()+BLOBS_TRANSFER_TIMEOUT;
+			var blobUrl = format("%s/%s/%s", blobServerURI, Blobs.NAME, shortId);
+			var shrt = new Short(shortId, userId, blobUrl);
+			Result<Short> r = DB.insertOne(shrt);
+
+			if(!r.isOK())
+				return r;
+
+			var sharedSecret = getAdminToken(timeLimit, blobServerURI);
+			var tempShortId = format("%s?timestamp=%s&verifier=%s", shortId, timeLimit, sharedSecret);
+			blobUrl = format("%s/%s/%s?timestamp=%s&verifier=%s", blobServerURI, Blobs.NAME, shortId, timeLimit, sharedSecret);
+
+			shrt.setShortId(tempShortId);
+			shrt.setBlobUrl(blobUrl);
+
+			return ok(shrt);
 		});
 	}
 
@@ -122,13 +137,17 @@ public class JavaShorts implements ExtendedShorts {
 			return error(BAD_REQUEST);
 
 		var shrt = shortFromCache(shortId);
-		var timelimit = System.currentTimeMillis()+BLOBS_TRANSFER_TIMEOUT;
-		shrt.value().setToken(getAdminToken(timelimit, shrt.value().getBlobUrl()));
-		shrt.value().setTimeLimit(timelimit);
+		var blobServerURI = shrt.value().getBlobUrl();
+		var timeLimit  = System.currentTimeMillis()+BLOBS_TRANSFER_TIMEOUT;
+		var sharedSecret = getAdminToken(timeLimit, blobServerURI);
+		var blobUrl = format("%s/%s/%s?timestamp=%s&verifier=%s", blobServerURI, Blobs.NAME, shortId, timeLimit, sharedSecret);
+		var tempShortId = format("%s?timestamp=%s&verifier=%s", shortId, timeLimit, sharedSecret);
 
-		return shortFromCache(shortId);
+		shrt.value().setShortId(tempShortId);
+		shrt.value().setBlobUrl(blobUrl);
+
+		return shrt;
 	}
-
 	
 	@Override
 	public Result<Void> deleteShort(String shortId, String password) {
@@ -310,6 +329,7 @@ public class JavaShorts implements ExtendedShorts {
 		String ip = blobUrl.substring(blobUrl.indexOf("://")+3, blobUrl.lastIndexOf(":"));
 		return Hash.sha256(ip, String.valueOf(timelimit), ADMIN_TOKEN);
 	}
+
 	
 }
 

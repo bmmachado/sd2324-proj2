@@ -25,6 +25,7 @@ import tukano.impl.java.clients.Clients;
 import utils.*;
 
 public class JavaBlobs implements ExtendedBlobs {
+
 	private static final String ADMIN_TOKEN = Props.getValue("SHARED_SECRET");
 	
 	private static final String BLOBS_ROOT_DIR = "/tmp/blobs/";
@@ -34,11 +35,17 @@ public class JavaBlobs implements ExtendedBlobs {
 	private static final int CHUNK_SIZE = 4096;
 
 	@Override
-	public Result<Void> upload(String blobId, byte[] bytes, long timelimit, String verifier) {
-		Log.info(() -> format("upload : blobId = %s, sha256 = %s\n", timelimit, blobId, Hex.of(Hash.sha256(bytes))));
+	public Result<Void> upload(String urlBlobId, byte[] bytes) {
+		Log.info(() -> format("upload from : urlBlobId = %s, sha256 = %s\n", urlBlobId, Hex.of(Hash.sha256(bytes))));
 
-		if(!validToken(timelimit, verifier))
+		/*if (!validBlobId(blobId))
+			return error(FORBIDDEN);*/
+
+		if(!validToken( urlBlobId ))
 			return error(FORBIDDEN);
+
+		var blobId = extrateBlobId(urlBlobId);
+		Log.info(() -> format("upload : blobId = %s\n", blobId));
 
 		var file = toFilePath(blobId);
 		if (file == null)
@@ -56,17 +63,11 @@ public class JavaBlobs implements ExtendedBlobs {
 	}
 
 	@Override
-	public Result<byte[]> download(String blobId, long timelimit, String verifier) {
-		Log.info(() -> format("download : blobId = %s\n", blobId));
+	public Result<byte[]> download(String urlBlobId) {
+		Log.info(() -> format("download : blobId = %s\n", urlBlobId));
 
-		if(!validToken(timelimit, verifier))
-			return error(FORBIDDEN);
+		var blobId = extrateBlobId(urlBlobId);
 
-		return download(blobId);
-	}
-
-	@Override
-	public Result<byte[]> download(String blobId) {
 		var file = toFilePath(blobId);
 		if (file == null)
 			return error(BAD_REQUEST);
@@ -153,11 +154,21 @@ public class JavaBlobs implements ExtendedBlobs {
 		return res;
 	}
 
-	private boolean validToken(long timelimit, String secret) {
+	private boolean validToken(String blobId) {
+		var timeLimit = Long.parseLong(blobId.substring(blobId.indexOf('=') + 1, blobId.lastIndexOf('&')));
+		var secret = blobId.substring(blobId.lastIndexOf('=') + 1);
 
-		if (timelimit < System.currentTimeMillis())
+		if (timeLimit < System.currentTimeMillis())
 			return false;
 
-		return Hash.sha256(IP.hostAddress(), String.valueOf(timelimit), ADMIN_TOKEN).equals(secret);
+		return Hash.sha256(IP.hostAddress(), String.valueOf(timeLimit), ADMIN_TOKEN).equals(secret);
+	}
+
+	/*private String extrateBlobId(String blobId) {
+		return blobId.substring(blobId.lastIndexOf('/')+1, blobId.indexOf('&'));
+	}*/
+
+	private String extrateBlobId(String blobId) {
+		return blobId.substring(0, blobId.indexOf('?'));
 	}
 }

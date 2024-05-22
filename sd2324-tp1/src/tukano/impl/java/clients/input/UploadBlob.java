@@ -19,7 +19,7 @@ public class UploadBlob {
 
     public static void main(String[] args) throws IOException {
 
-        if (args.length != 3) {
+        if (args.length != 1) {
             System.err.println("Use: UploadBlob blobId < file");
             System.err.println("  or");
             System.err.println("Use: cat file | UploadBlob blobId");
@@ -27,8 +27,6 @@ public class UploadBlob {
         }
 
         String blobId = args[0];
-        long timestamp = Long.parseLong(args[1]);
-        String verifier = args[2];
 
         ByteBuffer buf = ByteBuffer.allocate(1000000);
         ReadableByteChannel channel = Channels.newChannel(System.in);
@@ -40,7 +38,7 @@ public class UploadBlob {
         ClientFactory<ExtendedBlobs> blobsClientFactory = Clients.BlobsClients;
         ExtendedBlobs blobsClient = blobsClientFactory.get();
 
-        var result = blobsClient.upload(blobId, bytes, timestamp, verifier);
+        var result = blobsClient.upload(blobId, bytes);
 
         if (result.isOK())
             Log.info("Upload blob");
