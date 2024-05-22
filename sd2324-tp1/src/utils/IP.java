@@ -12,4 +12,12 @@ public class IP {
 			return "?.?.?.?";
 		}
 	}
+
+	public static String hostName() {
+		try {
+			return InetAddress.getLocalHost().getHostName();
+		} catch (UnknownHostException e) {
+			return "hostname-not-found";
+		}
+	}
 }

@@ -14,11 +14,13 @@ import utils.IP;
 
 
 public abstract class AbstractRestServer extends AbstractServer {
+
 	private static final String SERVER_BASE_URI = "https://%s:%s%s";
 	private static final String REST_CTX = "/rest";
 
 	protected AbstractRestServer(Logger log, String service, int port) {
 		super(log, service, String.format(SERVER_BASE_URI, IP.hostAddress(), port, REST_CTX));
+
 	}
 
 	protected void start() {
