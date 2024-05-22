@@ -121,11 +121,12 @@ public class JavaShorts implements ExtendedShorts {
 			var sharedSecret = getAdminToken(timeLimit, blobServerURI);
 			var tempShortId = format("%s?timestamp=%s&verifier=%s", shortId, timeLimit, sharedSecret);
 			blobUrl = format("%s/%s/%s?timestamp=%s&verifier=%s", blobServerURI, Blobs.NAME, shortId, timeLimit, sharedSecret);
+			var tempShrt = new Short(tempShortId, userId, blobUrl);
 
-			shrt.setShortId(tempShortId);
-			shrt.setBlobUrl(blobUrl);
+			tempShrt.setShortId(tempShortId);
+			tempShrt.setBlobUrl(blobUrl);
 
-			return ok(shrt);
+			return ok(tempShrt);
 		});
 	}
 

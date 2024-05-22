@@ -35,16 +35,16 @@ public class JavaBlobs implements ExtendedBlobs {
 	private static final int CHUNK_SIZE = 4096;
 
 	@Override
-	public Result<Void> upload(String urlBlobId, byte[] bytes) {
-		Log.info(() -> format("upload from : urlBlobId = %s, sha256 = %s\n", urlBlobId, Hex.of(Hash.sha256(bytes))));
+	public Result<Void> upload(String verifier, byte[] bytes) {
+		Log.info(() -> format("upload from : verifier = %s, sha256 = %s\n", verifier, Hex.of(Hash.sha256(bytes))));
 
 		/*if (!validBlobId(blobId))
 			return error(FORBIDDEN);*/
 
-		if(!validToken( urlBlobId ))
+		if(!validToken( verifier ))
 			return error(FORBIDDEN);
 
-		var blobId = extrateBlobId(urlBlobId);
+		var blobId = extrateBlobId(verifier);
 		Log.info(() -> format("upload : blobId = %s\n", blobId));
 
 		var file = toFilePath(blobId);
@@ -63,10 +63,13 @@ public class JavaBlobs implements ExtendedBlobs {
 	}
 
 	@Override
-	public Result<byte[]> download(String urlBlobId) {
-		Log.info(() -> format("download : blobId = %s\n", urlBlobId));
+	public Result<byte[]> download(String verifier) {
+		Log.info(() -> format("download : blobId = %s\n", verifier));
 
-		var blobId = extrateBlobId(urlBlobId);
+		if(!validToken( verifier ))
+			return error(FORBIDDEN);
+
+		var blobId = extrateBlobId(verifier);
 
 		var file = toFilePath(blobId);
 		if (file == null)
