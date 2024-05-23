@@ -47,7 +47,8 @@ public class JavaShorts implements ExtendedShorts {
 
 	AtomicLong counter = new AtomicLong( totalShortsInDatabase() );
 
-	private static final long USER_CACHE_EXPIRATION = 3000;
+	//private static final long USER_CACHE_EXPIRATION = 3000;
+  private static final long USER_CACHE_EXPIRATION = 10000;
 	private static final long SHORTS_CACHE_EXPIRATION = 3000;
 	private static final long BLOBS_USAGE_CACHE_EXPIRATION = 10000;
 
@@ -108,13 +109,14 @@ public class JavaShorts implements ExtendedShorts {
 
     Log.info("AQUI PASSOU DE CERTEZA!!!\n");
 
-//		return errorOrResult( okUser(userId, password), user -> {
+		return errorOrResult( okUser(userId, password), user -> {
 
 			var shortId = format("%s-%d", userId, counter.incrementAndGet());
 			var blobServerURI = getLeastLoadedBlobServerURI();
 			var timeLimit  = System.currentTimeMillis()+BLOBS_TRANSFER_TIMEOUT;
 			var blobUrl = format("%s/%s/%s", blobServerURI, Blobs.NAME, shortId);
 			var shrt = new Short(shortId, userId, blobUrl);
+      shrt.setTimestamp(timeLimit);
 			Result<Short> r = DB.insertOne(shrt);
 
       Log.info("PASSOU AQUI!!!\n");
@@ -124,22 +126,20 @@ public class JavaShorts implements ExtendedShorts {
 
       Log.info("MAS AQUI NÃO!!!\n");
 
-//    var sharedSecret = getAdminToken(timeLimit, blobServerURI);
 			var sharedSecret = getAdminToken(timeLimit, blobUrl);
 
-			//var tempShortId = format("%s?timestamp=%s&verifier=%s", shortId, timeLimit, sharedSecret);
 			blobUrl = format("%s/%s/%s?timestamp=%s&verifier=%s", blobServerURI, Blobs.NAME, shortId, timeLimit, sharedSecret);
       Log.info("createShort : blobUrl = " + blobUrl + "\n");
-			//var tempShrt = new Short(tempShortId, userId, blobUrl);
       var tempShrt = new Short(shortId, userId, blobUrl);
 
-			//tempShrt.setShortId(tempShortId);
+      tempShrt.setTimestamp(timeLimit);
+
       tempShrt.setShortId(shortId);
 			tempShrt.setBlobUrl(blobUrl);
       Log.info("createShort : shortId = " + shortId + "\n");
 
 			return ok(tempShrt);
-//		});
+		});
 	}
 
 	@Override
@@ -151,19 +151,11 @@ public class JavaShorts implements ExtendedShorts {
 
 		var shrt = shortFromCache(shortId);
 		var blobServerURI = shrt.value().getBlobUrl();
-		//var timeLimit  = System.currentTimeMillis()+BLOBS_TRANSFER_TIMEOUT;
     var timeLimit  = shrt.value().getTimestamp();
 		var sharedSecret = getAdminToken(timeLimit, blobServerURI);
-//    var sharedSecret = getAdminToken(timeLimit, blobUrl);
-		//var blobUrl = format("%s/%s/%s?timestamp=%s&verifier=%s", blobServerURI, Blobs.NAME, shortId, timeLimit, sharedSecret);
-// Expected : Short [shortId=dillon.bayer-2, ownerId=dillon.bayer, blobUrl=https://172.20.0.6:5678/rest/blobs/dillon.bayer-2?timestamp=1716422391348&verifier=F459360E3B7A842B84DA254868C010BDB59F9E8B566296C587C235ECC2557F49, timestamp=1716421791382, totalLikes=0]; 
-// received : Short [shortId=dillon.bayer-2, ownerId=dillon.bayer, blobUrl=https://172.20.0.6:5678/rest/blobs/dillon.bayer-2/blobs/dillon.bayer-2?timestamp=1716422397012&verifier=8A217641D204264B4DA4C148854605EBECE7511B9DE8FCF8501A841E4ADD63CC, timestamp=1716421791348, totalLikes=0]
-
 
     var blobUrl = format("%s?timestamp=%s&verifier=%s", blobServerURI, shrt.value().getTimestamp(), sharedSecret);
-		//var tempShortId = format("%s?timestamp=%s&verifier=%s", shortId, timeLimit, sharedSecret);
 
-		//shrt.value().setShortId(tempShortId);
     shrt.value().setShortId(shortId);
 		shrt.value().setBlobUrl(blobUrl);
 
@@ -260,6 +252,7 @@ public class JavaShorts implements ExtendedShorts {
 		
 	protected Result<User> okUser( String userId, String pwd) {
 		try {
+      Log.info(() -> format("CREDS : userId = %s, pwd = %s\n", userId, pwd));
 			return usersCache.get( new Credentials(userId, pwd));
 		} catch (Exception x) {
 			x.printStackTrace();

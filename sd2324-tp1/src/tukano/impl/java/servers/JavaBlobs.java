@@ -164,7 +164,7 @@ public class JavaBlobs implements ExtendedBlobs {
 		if (timeLimit < System.currentTimeMillis())
 			return false;
 
-		return Hash.sha256(IP.hostAddress(), String.valueOf(timeLimit), ADMIN_TOKEN).equals(secret);
+		return Hash.sha256(IP.hostName(), String.valueOf(timeLimit), ADMIN_TOKEN).equals(secret);
 	}
 
 	/*private String extrateBlobId(String blobId) {
