@@ -26,8 +26,8 @@ import utils.Sleep;
 public class RestClient {
 	private static Logger Log = Logger.getLogger(RestClient.class.getName());
 
-	protected static final int READ_TIMEOUT = 10000;
-	protected static final int CONNECT_TIMEOUT = 10000;
+	protected static final int READ_TIMEOUT = 20000;
+	protected static final int CONNECT_TIMEOUT = 20000;
 
 	protected static final int MAX_RETRIES = 3;
 	protected static final int RETRY_SLEEP = 1000;
