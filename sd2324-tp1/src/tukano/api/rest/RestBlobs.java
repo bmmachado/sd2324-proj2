@@ -9,6 +9,8 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
+import java.net.URI;
+
 @Path(RestBlobs.PATH)
 public interface RestBlobs {
 	

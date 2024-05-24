@@ -7,6 +7,8 @@ import tukano.impl.api.rest.RestExtendedBlobs;
 import tukano.impl.java.servers.JavaBlobs;
 import tukano.impl.java.servers.JavaBlobsDropbox;
 
+import java.net.URI;
+
 @Singleton
 public class RestBlobsResource extends RestResource implements RestExtendedBlobs {
 

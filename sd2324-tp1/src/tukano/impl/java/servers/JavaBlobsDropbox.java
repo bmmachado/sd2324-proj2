@@ -9,6 +9,7 @@ import static tukano.api.java.Result.error;
 import static tukano.api.java.Result.ok;
 import static java.lang.String.format;
 
+import java.net.URI;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -28,13 +29,13 @@ public class JavaBlobsDropbox implements ExtendedBlobs {
     private static final int CHUNK_SIZE = 4096;
 
     @Override
-    public Result<Void> upload(String blobId, byte[] bytes) {
-        Log.info(() -> format("upload : blobId = %s, sha256 = %s\n", blobId, Hex.of(Hash.sha256(bytes))));
+    public Result<Void> upload(String verifier, byte[] bytes) {
+        Log.info(() -> format("upload : blobId = %s, sha256 = %s\n", verifier, Hex.of(Hash.sha256(bytes))));
 
-        if (!validBlobId(blobId))
+        if (!validBlobId(verifier))
             return error(FORBIDDEN);
 
-        var file = toStringPath(blobId);
+        var file = toStringPath(verifier);
 
         if (file == null)
             return error(BAD_REQUEST);

@@ -12,6 +12,7 @@ import static tukano.api.java.Result.ErrorCode.NOT_FOUND;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -41,13 +42,10 @@ public class JavaBlobs implements ExtendedBlobs {
 		/*if (!validBlobId(blobId))
 			return error(FORBIDDEN);*/
 
-		if(!validToken( verifier ))
+		if(!validToken(verifier))
 			return error(FORBIDDEN);
 
-		var blobId = extrateBlobId(verifier);
-		Log.info(() -> format("upload : blobId = %s\n", blobId));
-
-		var file = toFilePath(blobId);
+		var file = toFilePath(verifier);
 		if (file == null)
 			return error(BAD_REQUEST);
 
@@ -69,9 +67,7 @@ public class JavaBlobs implements ExtendedBlobs {
 		if(!validToken( verifier ))
 			return error(FORBIDDEN);
 
-		var blobId = extrateBlobId(verifier);
-
-		var file = toFilePath(blobId);
+		var file = toFilePath(verifier);
 		if (file == null)
 			return error(BAD_REQUEST);
 
@@ -106,14 +102,14 @@ public class JavaBlobs implements ExtendedBlobs {
 	}
 
 	@Override
-	public Result<Void> delete(String blobId, String token) {
-		Log.info(() -> format("delete : blobId = %s, token=%s\n", blobId, token));
+	public Result<Void> delete(String blobURL, String token) {
+		Log.info(() -> format("delete : blobURL = %s, token=%s\n", blobURL, token));
 	
 		if( ! Token.matches( token ) )
 			return error(FORBIDDEN);
 
 		
-		var file = toFilePath(blobId);
+		var file = toFilePath(blobURL);
 
 		if (file == null)
 			return error(BAD_REQUEST);
@@ -141,13 +137,10 @@ public class JavaBlobs implements ExtendedBlobs {
 			return error(INTERNAL_ERROR);
 		}
 	}
-	
-	private boolean validBlobId(String blobId) {
-		return Clients.ShortsClients.get().getShort(blobId).isOK();
-	}
 
-	private File toFilePath(String blobId) {
-		var parts = blobId.split("-");
+	private File toFilePath(String blobURL) {
+		var blobID = blobURL.substring(0, blobURL.indexOf('?'));
+		var parts = blobID.split("-");
 		if (parts.length != 2)
 			return null;
 
@@ -158,20 +151,24 @@ public class JavaBlobs implements ExtendedBlobs {
 	}
 
 	private boolean validToken(String blobId) {
-		var timeLimit = Long.parseLong(blobId.substring(blobId.indexOf('=') + 1, blobId.lastIndexOf('&')));
+		var timeLimit = Long.parseLong(blobId.substring(blobId.indexOf('=') + 1, blobId.indexOf('&')));
 		var secret = blobId.substring(blobId.lastIndexOf('=') + 1);
 
 		if (timeLimit < System.currentTimeMillis())
 			return false;
 
-		return Hash.sha256(IP.hostAddress(), String.valueOf(timeLimit), ADMIN_TOKEN).equals(secret);
+		return Hash.sha256(IP.hostName(), String.valueOf(timeLimit), ADMIN_TOKEN).equals(secret);
 	}
 
-	/*private String extrateBlobId(String blobId) {
-		return blobId.substring(blobId.lastIndexOf('/')+1, blobId.indexOf('&'));
+	/*private boolean validBlobId(String blobId) {
+		return Clients.ShortsClients.get().getShort(blobId).isOK();
 	}*/
 
-	private String extrateBlobId(String blobId) {
+	/*private String extractBloID(String blobURL) {
+		return blobURL.substring(blobURL.lastIndexOf('/')+1, blobURL.indexOf('?'));
+	}*/
+
+	/*private String extractBloID(String blobId) {
 		return blobId.substring(0, blobId.indexOf('?'));
-	}
+	}*/
 }

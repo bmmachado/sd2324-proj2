@@ -26,10 +26,10 @@ public class GrpcBlobsClient extends GrpcClient implements ExtendedBlobs {
 	
 	
 	@Override
-	public Result<Void> upload(String blobId, byte[] bytes) {
+	public Result<Void> upload(String blobURL, byte[] bytes) {
 		return super.toJavaResult(() -> {
 			stub.upload( UploadArgs.newBuilder()
-				.setBlobId( blobId )
+				.setBlobId(String.valueOf(blobURL))
 				.setData( ByteString.copyFrom(bytes))
 				.build());
 

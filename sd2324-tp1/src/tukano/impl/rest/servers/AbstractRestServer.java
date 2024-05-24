@@ -17,7 +17,7 @@ public abstract class AbstractRestServer extends AbstractServer {
 	private static final String REST_CTX = "/rest";
 
 	protected AbstractRestServer(Logger log, String service, int port) {
-		super(log, service, String.format(SERVER_BASE_URI, IP.hostAddress(), port, REST_CTX));
+		super(log, service, String.format(SERVER_BASE_URI, IP.hostName(), port, REST_CTX));
 
 	}
 

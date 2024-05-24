@@ -119,12 +119,8 @@ public class JavaShorts implements ExtendedShorts {
 				return r;
 
 			var sharedSecret = getAdminToken(timeLimit, blobServerURI);
-			var tempShortId = format("%s?timestamp=%s&verifier=%s", shortId, timeLimit, sharedSecret);
 			blobUrl = format("%s/%s/%s?timestamp=%s&verifier=%s", blobServerURI, Blobs.NAME, shortId, timeLimit, sharedSecret);
-			var tempShrt = new Short(tempShortId, userId, blobUrl);
-
-			tempShrt.setShortId(tempShortId);
-			tempShrt.setBlobUrl(blobUrl);
+			var tempShrt = new Short(shortId, userId, blobUrl);
 
 			return ok(tempShrt);
 		});
@@ -138,13 +134,11 @@ public class JavaShorts implements ExtendedShorts {
 			return error(BAD_REQUEST);
 
 		var shrt = shortFromCache(shortId);
-		var blobServerURI = shrt.value().getBlobUrl();
+		var blobServerURL = shrt.value().getBlobUrl();
 		var timeLimit  = System.currentTimeMillis()+BLOBS_TRANSFER_TIMEOUT;
-		var sharedSecret = getAdminToken(timeLimit, blobServerURI);
-		var blobUrl = format("%s/%s/%s?timestamp=%s&verifier=%s", blobServerURI, Blobs.NAME, shortId, timeLimit, sharedSecret);
-		var tempShortId = format("%s?timestamp=%s&verifier=%s", shortId, timeLimit, sharedSecret);
+		var sharedSecret = getAdminToken(timeLimit, blobServerURL);
+		var blobUrl = format("%s?timestamp=%s&verifier=%s", blobServerURL, timeLimit, sharedSecret);
 
-		shrt.value().setShortId(tempShortId);
 		shrt.value().setBlobUrl(blobUrl);
 
 		return shrt;
@@ -158,11 +152,11 @@ public class JavaShorts implements ExtendedShorts {
 			
 			return errorOrResult( okUser( shrt.getOwnerId(), password), user -> {
 				return DB.transaction( hibernate -> {
-
-					shortsCache.invalidate( shortId );
-					hibernate.remove( shrt);
+					var shrtID = shortId.substring(shortId.lastIndexOf("/")+1, shortId.indexOf("?"));
+					shortsCache.invalidate( shrtID );
+					hibernate.remove( shrtID);
 					
-					var query = format("SELECT * FROM Likes l WHERE l.shortId = '%s'", shortId);
+					var query = format("SELECT * FROM Likes l WHERE l.shortId = '%s'", shrtID);
 					hibernate.createNativeQuery( query, Likes.class).list().forEach( hibernate::remove);
 					
 					BlobsClients.get().delete(shrt.getBlobUrl(), Token.get() );
