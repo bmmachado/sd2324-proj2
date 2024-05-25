@@ -19,7 +19,7 @@ public abstract class AbstractServer {
 		this.service = service;
 		this.serverURI = serverURI;
 		
-		Token.set( Args.valueOf("-token", ""));
+		Token.set( Args.valueOf("-token", "123456"));
 	}
 		
 	abstract protected void start() throws IOException;

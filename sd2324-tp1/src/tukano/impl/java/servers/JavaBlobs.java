@@ -138,8 +138,9 @@ public class JavaBlobs implements ExtendedBlobs {
 		}
 	}
 
-	private File toFilePath(String blobURL) {
-		var blobID = blobURL.substring(0, blobURL.indexOf('?'));
+	private File toFilePath(String blobID) {
+		if(blobID.contains("?"))
+			blobID = blobID.substring(0, blobID.indexOf('?'));
 		var parts = blobID.split("-");
 		if (parts.length != 2)
 			return null;
