@@ -149,14 +149,12 @@ public class JavaShorts implements ExtendedShorts {
 		Log.info(() -> format("deleteShort : shortId = %s, pwd = %s\n", shortId, password));
 		
 		return errorOrResult( getShort(shortId), shrt -> {
-			
 			return errorOrResult( okUser( shrt.getOwnerId(), password), user -> {
 				return DB.transaction( hibernate -> {
-					var shrtID = shortId.substring(shortId.lastIndexOf("/")+1, shortId.indexOf("?"));
-					shortsCache.invalidate( shrtID );
-					hibernate.remove( shrtID);
+					shortsCache.invalidate( shortId );
+					hibernate.remove( shrt);
 					
-					var query = format("SELECT * FROM Likes l WHERE l.shortId = '%s'", shrtID);
+					var query = format("SELECT * FROM Likes l WHERE l.shortId = '%s'", shortId);
 					hibernate.createNativeQuery( query, Likes.class).list().forEach( hibernate::remove);
 					
 					BlobsClients.get().delete(shrt.getBlobUrl(), Token.get() );
