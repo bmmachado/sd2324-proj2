@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.util.logging.Logger;
 
 import io.grpc.Server;
-import io.grpc.ServerBuilder;
+import io.grpc.netty.NettyServerBuilder;
 import tukano.impl.discovery.Discovery;
 import tukano.impl.java.servers.AbstractServer;
 import utils.IP;
@@ -20,7 +20,9 @@ public class AbstractGrpcServer extends AbstractServer {
 
 	protected AbstractGrpcServer(Logger log, String service, int port, AbstractGrpcStub stub) {
 		super(log, service, String.format(SERVER_BASE_URI, IP.hostName(), port, GRPC_CTX));
-		this.server = ServerBuilder.forPort(port).addService(stub).build();
+		this.server = NettyServerBuilder.forPort(port)
+				.addService(stub)
+				.build();
 	}
 
 	protected void start() throws IOException {

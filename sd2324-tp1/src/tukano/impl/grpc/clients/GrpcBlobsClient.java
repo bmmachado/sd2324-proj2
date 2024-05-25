@@ -27,9 +27,10 @@ public class GrpcBlobsClient extends GrpcClient implements ExtendedBlobs {
 	
 	@Override
 	public Result<Void> upload(String blobURL, byte[] bytes) {
+		var blobId = blobURL.substring( blobURL.lastIndexOf('/') + 1);
 		return super.toJavaResult(() -> {
 			stub.upload( UploadArgs.newBuilder()
-				.setBlobId(String.valueOf(blobURL))
+				.setBlobId(blobId)
 				.setData( ByteString.copyFrom(bytes))
 				.build());
 
@@ -37,7 +38,8 @@ public class GrpcBlobsClient extends GrpcClient implements ExtendedBlobs {
 	}
 
 	@Override
-	public Result<byte[]> download(String blobId) {
+	public Result<byte[]> download(String blobURL) {
+		var blobId = blobURL.substring( blobURL.lastIndexOf('/') + 1);
 		return super.toJavaResult(() -> {
 			var res = stub.download( DownloadArgs.newBuilder()
 				.setBlobId(blobId)
@@ -51,6 +53,7 @@ public class GrpcBlobsClient extends GrpcClient implements ExtendedBlobs {
 	}
 
 	public Result<Void> downloadToSink(String blobId, Consumer<byte[]> sink) {
+		//var blobId = blobURL.substring( blobURL.lastIndexOf('/') + 1);
 		return super.toJavaResult(() -> {
 			var res = stub.download( DownloadArgs.newBuilder()
 				.setBlobId(blobId)
@@ -71,8 +74,7 @@ public class GrpcBlobsClient extends GrpcClient implements ExtendedBlobs {
 	}
 	
 	@Override
-	public Result<Void> delete(String blobURL, String token) {
-		var blobId = blobURL.substring( blobURL.lastIndexOf('/') + 1);
+	public Result<Void> delete(String blobId, String token) {
 		return super.toJavaResult(() -> {
 			stub.delete( DeleteArgs.newBuilder()
 				.setBlobId(blobId)

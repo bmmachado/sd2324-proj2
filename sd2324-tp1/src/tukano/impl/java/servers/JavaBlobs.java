@@ -62,7 +62,9 @@ public class JavaBlobs implements ExtendedBlobs {
 
 	@Override
 	public Result<byte[]> download(String verifier) {
-		Log.info(() -> format("download : blobId = %s\n", verifier));
+		Log.info(() -> format("download : verifier = %s\n", verifier));
+		if (verifier == null)
+			return error(BAD_REQUEST);
 
 		if(!validToken( verifier ))
 			return error(FORBIDDEN);
@@ -102,15 +104,16 @@ public class JavaBlobs implements ExtendedBlobs {
 	}
 
 	@Override
-	public Result<Void> delete(String blobURL, String token) {
-		Log.info(() -> format("delete : blobURL = %s, token=%s\n", blobURL, token));
+	public Result<Void> delete(String blobId, String token) {
+		Log.info(() -> format("delete : blobId = %s, token=%s\n", blobId, token));
+
+		if (blobId == null)
+			return error(BAD_REQUEST);
 	
 		if( ! Token.matches( token ) )
 			return error(FORBIDDEN);
 
-		
-		var file = toFilePath(blobURL);
-
+		var file = toFilePath(blobId);
 		if (file == null)
 			return error(BAD_REQUEST);
 
@@ -163,13 +166,5 @@ public class JavaBlobs implements ExtendedBlobs {
 
 	/*private boolean validBlobId(String blobId) {
 		return Clients.ShortsClients.get().getShort(blobId).isOK();
-	}*/
-
-	/*private String extractBloID(String blobURL) {
-		return blobURL.substring(blobURL.lastIndexOf('/')+1, blobURL.indexOf('?'));
-	}*/
-
-	/*private String extractBloID(String blobId) {
-		return blobId.substring(0, blobId.indexOf('?'));
 	}*/
 }
