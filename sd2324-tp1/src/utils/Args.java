@@ -153,4 +153,8 @@ public class Args {
 		}
 		return result.toString();
 	}
+
+	public static boolean isBoolean(String args) {
+		return  args.equalsIgnoreCase("true") || args.equalsIgnoreCase("false");
+	}
 }

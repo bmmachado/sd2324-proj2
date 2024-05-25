@@ -12,6 +12,7 @@ import static tukano.api.java.Result.ErrorCode.NOT_FOUND;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -22,12 +23,11 @@ import java.util.logging.Logger;
 import tukano.api.java.Result;
 import tukano.impl.api.java.ExtendedBlobs;
 import tukano.impl.java.clients.Clients;
-import utils.Hash;
-import utils.Hex;
-import utils.IO;
-import utils.Token;
+import utils.*;
 
 public class JavaBlobs implements ExtendedBlobs {
+
+	private static final String ADMIN_TOKEN = Props.getValue("SHARED_SECRET");
 	
 	private static final String BLOBS_ROOT_DIR = "/tmp/blobs/";
 	
@@ -36,13 +36,16 @@ public class JavaBlobs implements ExtendedBlobs {
 	private static final int CHUNK_SIZE = 4096;
 
 	@Override
-	public Result<Void> upload(String blobId, byte[] bytes) {
-		Log.info(() -> format("upload : blobId = %s, sha256 = %s\n", blobId, Hex.of(Hash.sha256(bytes))));
+	public Result<Void> upload(String verifier, byte[] bytes) {
+		Log.info(() -> format("upload from : verifier = %s, sha256 = %s\n", verifier, Hex.of(Hash.sha256(bytes))));
 
-		if (!validBlobId(blobId))
+		/*if (!validBlobId(blobId))
+			return error(FORBIDDEN);*/
+
+		if(!validToken(verifier))
 			return error(FORBIDDEN);
 
-		var file = toFilePath(blobId);
+		var file = toFilePath(verifier);
 		if (file == null)
 			return error(BAD_REQUEST);
 
@@ -58,10 +61,15 @@ public class JavaBlobs implements ExtendedBlobs {
 	}
 
 	@Override
-	public Result<byte[]> download(String blobId) {
-		Log.info(() -> format("download : blobId = %s\n", blobId));
+	public Result<byte[]> download(String verifier) {
+		Log.info(() -> format("download : verifier = %s\n", verifier));
+		if (verifier == null)
+			return error(BAD_REQUEST);
 
-		var file = toFilePath(blobId);
+		if(!validToken( verifier ))
+			return error(FORBIDDEN);
+
+		var file = toFilePath(verifier);
 		if (file == null)
 			return error(BAD_REQUEST);
 
@@ -98,13 +106,14 @@ public class JavaBlobs implements ExtendedBlobs {
 	@Override
 	public Result<Void> delete(String blobId, String token) {
 		Log.info(() -> format("delete : blobId = %s, token=%s\n", blobId, token));
+
+		if (blobId == null)
+			return error(BAD_REQUEST);
 	
 		if( ! Token.matches( token ) )
 			return error(FORBIDDEN);
 
-		
 		var file = toFilePath(blobId);
-
 		if (file == null)
 			return error(BAD_REQUEST);
 
@@ -131,13 +140,11 @@ public class JavaBlobs implements ExtendedBlobs {
 			return error(INTERNAL_ERROR);
 		}
 	}
-	
-	private boolean validBlobId(String blobId) {
-		return Clients.ShortsClients.get().getShort(blobId).isOK();
-	}
 
-	private File toFilePath(String blobId) {
-		var parts = blobId.split("-");
+	private File toFilePath(String blobID) {
+		if(blobID.contains("?"))
+			blobID = blobID.substring(0, blobID.indexOf('?'));
+		var parts = blobID.split("-");
 		if (parts.length != 2)
 			return null;
 
@@ -146,4 +153,18 @@ public class JavaBlobs implements ExtendedBlobs {
 
 		return res;
 	}
+
+	private boolean validToken(String blobId) {
+		var timeLimit = Long.parseLong(blobId.substring(blobId.indexOf('=') + 1, blobId.indexOf('&')));
+		var secret = blobId.substring(blobId.lastIndexOf('=') + 1);
+
+		if (timeLimit < System.currentTimeMillis())
+			return false;
+
+		return Hash.sha256(IP.hostName(), String.valueOf(timeLimit), ADMIN_TOKEN).equals(secret);
+	}
+
+	/*private boolean validBlobId(String blobId) {
+		return Clients.ShortsClients.get().getShort(blobId).isOK();
+	}*/
 }

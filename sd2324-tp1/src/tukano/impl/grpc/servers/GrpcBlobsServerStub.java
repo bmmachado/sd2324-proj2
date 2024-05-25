@@ -13,6 +13,8 @@ import tukano.impl.grpc.generated_java.BlobsProtoBuf.UploadResult;
 import tukano.impl.api.java.ExtendedBlobs;
 import tukano.impl.java.servers.JavaBlobs;
 
+import java.net.URI;
+
 public class GrpcBlobsServerStub extends AbstractGrpcStub implements BlobsGrpc.AsyncService {
 
 	ExtendedBlobs impl = new JavaBlobs();

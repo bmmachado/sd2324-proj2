@@ -34,7 +34,7 @@ public class AbstractGrpcServer extends AbstractServer {
 
 	protected AbstractGrpcServer(Logger log, String service, int port, AbstractGrpcStub stub) throws KeyStoreException, IOException, CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException {
 
-		super(log, service, String.format(SERVER_BASE_URI, IP.hostAddress(), port, GRPC_CTX));
+		super(log, service, String.format(SERVER_BASE_URI, IP.hostName(), port, GRPC_CTX));
 
     var keyStore = System.getProperty("javax.net.ssl.keyStore");
     var keyStorePassword = System.getProperty("javax.net.ssl.keyStorePassword");
