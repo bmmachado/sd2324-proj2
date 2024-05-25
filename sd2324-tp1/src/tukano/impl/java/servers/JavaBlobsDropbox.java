@@ -1,7 +1,6 @@
 package tukano.impl.java.servers;
 
 
-
 import static utils.ExternalServices.BLOBS_DROPBOX;
 import static utils.ExternalServices.HTTP_SUCCESS;
 import static tukano.api.java.Result.ErrorCode.*;
@@ -9,6 +8,7 @@ import static tukano.api.java.Result.error;
 import static tukano.api.java.Result.ok;
 import static java.lang.String.format;
 
+import java.net.URI;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -22,20 +22,22 @@ import utils.*;
 
 public class JavaBlobsDropbox implements ExtendedBlobs {
 
-   // private static final String BLOBS_ROOT_DIR = DROPBOX_ROOT+"/"+ IP.hostName()+"/";
-    private static final String BLOBS_ROOT_DIR = BLOBS_DROPBOX +"/";
+    // private static final String BLOBS_ROOT_DIR = DROPBOX_ROOT+"/"+ IP.hostName()+"/";
+    private static final String ADMIN_TOKEN = Props.getValue("SHARED_SECRET");
+    private static final String BLOBS_ROOT_DIR = BLOBS_DROPBOX + "/";
     private static Logger Log = Logger.getLogger(JavaBlobs.class.getName());
-    private static final int CHUNK_SIZE = 4096;
 
     @Override
-    public Result<Void> upload(String blobId, byte[] bytes) {
-        Log.info(() -> format("upload : blobId = %s, sha256 = %s\n", blobId, Hex.of(Hash.sha256(bytes))));
+    public Result<Void> upload(String verifier, byte[] bytes) {
+        Log.info(() -> format("upload : blobId = %s, sha256 = %s\n", verifier, Hex.of(Hash.sha256(bytes))));
 
-        if (!validBlobId(blobId))
+        if (verifier == null)
+            return error(BAD_REQUEST);
+
+        if (!validToken(verifier))
             return error(FORBIDDEN);
 
-        var file = toStringPath(blobId);
-
+        var file = toStringPath(verifier);
         if (file == null)
             return error(BAD_REQUEST);
 
@@ -58,13 +60,17 @@ public class JavaBlobsDropbox implements ExtendedBlobs {
     }
 
     @Override
-    public Result<byte[]> download(String blobId) {
+    public Result<byte[]> download(String verifier) {
+        Log.info(() -> format("download : verifier = %s\n", verifier));
 
-        if (blobId == null)
+        if (verifier == null)
             return error(BAD_REQUEST);
 
-        var file = toStringPath(blobId);
-        Log.info(() -> format("download : file = %s\n", file));
+        if(!validToken( verifier ))
+            return error(FORBIDDEN);
+
+        var file = toStringPath(verifier);
+        Log.info(() -> "download : file = " + file + "\n");
 
         var down = new ExternalServices();
 
@@ -82,11 +88,13 @@ public class JavaBlobsDropbox implements ExtendedBlobs {
     public Result<Void> delete(String blobId, String token) {
         Log.info(() -> format("delete : blobId = %s, token=%s\n", blobId, token));
 
+        if (blobId == null)
+            return error(BAD_REQUEST);
+
         if (!Token.matches(token))
             return error(FORBIDDEN);
 
         var file = toStringPath(blobId);
-
         if (file == null)
             return error(BAD_REQUEST);
 
@@ -129,12 +137,10 @@ public class JavaBlobsDropbox implements ExtendedBlobs {
         }
     }
 
-    private boolean validBlobId(String blobId) {
-        return Clients.ShortsClients.get().getShort(blobId).isOK();
-    }
-
-    private String toStringPath(String blobId) {
-        var parts = blobId.split("-");
+    private String toStringPath(String blobID) {
+        if (blobID.contains("?"))
+            blobID = blobID.substring(0, blobID.indexOf('?'));
+        var parts = blobID.split("-");
         if (parts.length != 2)
             return null;
 
@@ -158,4 +164,18 @@ public class JavaBlobsDropbox implements ExtendedBlobs {
             throw new RuntimeException(e);
         }
     }
+
+    private boolean validToken(String blobId) {
+        var timeLimit = Long.parseLong(blobId.substring(blobId.indexOf('=') + 1, blobId.indexOf('&')));
+        var secret = blobId.substring(blobId.lastIndexOf('=') + 1);
+
+        if (timeLimit < System.currentTimeMillis())
+            return false;
+
+        return Hash.sha256(IP.hostName(), String.valueOf(timeLimit), ADMIN_TOKEN).equals(secret);
+    }
+
+    /*private boolean validBlobId(String blobId) {
+        return Clients.ShortsClients.get().getShort(blobId).isOK();
+    }*/
 }

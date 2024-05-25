@@ -34,6 +34,8 @@ import tukano.impl.api.java.ExtendedShorts;
 import tukano.impl.java.servers.data.Following;
 import tukano.impl.java.servers.data.Likes;
 import utils.DB;
+import utils.Hash;
+import utils.Props;
 import utils.Token;
 
 public class JavaShorts implements ExtendedShorts {
@@ -41,11 +43,15 @@ public class JavaShorts implements ExtendedShorts {
 
 	private static Logger Log = Logger.getLogger(JavaShorts.class.getName());
 
+	private static final String ADMIN_TOKEN = Props.getValue("SHARED_SECRET");
+
 	AtomicLong counter = new AtomicLong( totalShortsInDatabase() );
-	
+
 	private static final long USER_CACHE_EXPIRATION = 3000;
 	private static final long SHORTS_CACHE_EXPIRATION = 3000;
 	private static final long BLOBS_USAGE_CACHE_EXPIRATION = 10000;
+
+	private static final long BLOBS_TRANSFER_TIMEOUT = 600000;
 
 
 	static record Credentials(String userId, String pwd) {
@@ -101,12 +107,22 @@ public class JavaShorts implements ExtendedShorts {
 		Log.info(() -> format("createShort : userId = %s, pwd = %s\n", userId, password));
 
 		return errorOrResult( okUser(userId, password), user -> {
-			
-			var shortId = format("%s-%d", userId, counter.incrementAndGet());
-			var blobUrl = format("%s/%s/%s", getLeastLoadedBlobServerURI(), Blobs.NAME, shortId); 
-			var shrt = new Short(shortId, userId, blobUrl);
 
-			return DB.insertOne(shrt);
+			var shortId = format("%s-%d", userId, counter.incrementAndGet());
+			var blobServerURI = getLeastLoadedBlobServerURI();
+			var timeLimit  = System.currentTimeMillis()+BLOBS_TRANSFER_TIMEOUT;
+			var blobUrl = format("%s/%s/%s", blobServerURI, Blobs.NAME, shortId);
+			var shrt = new Short(shortId, userId, blobUrl);
+			Result<Short> r = DB.insertOne(shrt);
+
+			if(!r.isOK())
+				return r;
+
+			var sharedSecret = getAdminToken(timeLimit, blobServerURI);
+			blobUrl = format("%s/%s/%s?timestamp=%s&verifier=%s", blobServerURI, Blobs.NAME, shortId, timeLimit, sharedSecret);
+			var tempShrt = new Short(shortId, userId, blobUrl);
+
+			return ok(tempShrt);
 		});
 	}
 
@@ -117,19 +133,24 @@ public class JavaShorts implements ExtendedShorts {
 		if( shortId == null )
 			return error(BAD_REQUEST);
 
-		return shortFromCache(shortId);
-	}
+		var shrt = shortFromCache(shortId);
+		var blobServerURL = shrt.value().getBlobUrl();
+		var timeLimit  = System.currentTimeMillis()+BLOBS_TRANSFER_TIMEOUT;
+		var sharedSecret = getAdminToken(timeLimit, blobServerURL);
+		var blobUrl = format("%s?timestamp=%s&verifier=%s", blobServerURL, timeLimit, sharedSecret);
 
+		shrt.value().setBlobUrl(blobUrl);
+
+		return shrt;
+	}
 	
 	@Override
 	public Result<Void> deleteShort(String shortId, String password) {
 		Log.info(() -> format("deleteShort : shortId = %s, pwd = %s\n", shortId, password));
 		
 		return errorOrResult( getShort(shortId), shrt -> {
-			
 			return errorOrResult( okUser( shrt.getOwnerId(), password), user -> {
 				return DB.transaction( hibernate -> {
-
 					shortsCache.invalidate( shortId );
 					hibernate.remove( shrt);
 					
@@ -297,8 +318,11 @@ public class JavaShorts implements ExtendedShorts {
 		return 1L + (hits.isEmpty() ? 0L : hits.get(0));
 	}
 
-	
-	
+	private String getAdminToken(long timelimit, String blobUrl) {
+		String ip = blobUrl.substring(blobUrl.indexOf("://")+3, blobUrl.lastIndexOf(":"));
+		return Hash.sha256(ip, String.valueOf(timelimit), ADMIN_TOKEN);
+	}
+
 	
 }
 

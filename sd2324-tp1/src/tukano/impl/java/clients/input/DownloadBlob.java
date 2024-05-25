@@ -18,7 +18,7 @@ public class DownloadBlob {
     public static void main(String[] args) throws IOException {
 
         if (args.length != 1) {
-            System.err.println("Use: DownloadBlob blobId > file");
+            System.err.println("Use: DownloadBlob blobId");
             return;
         }
 
@@ -31,7 +31,7 @@ public class DownloadBlob {
         if (result.isOK())
             Log.info(() -> format("download : file, sha256 = %s\n", Hex.of(Hash.sha256(result.value()))));
 
-       /* byte[] bytes;
+        byte[] bytes;
 
         if (result.isOK()) {
             Log.info("Saving blob " + blobId + " to disk");
@@ -44,7 +44,7 @@ public class DownloadBlob {
                 System.out.print(data);
             }
             blob.close();
-        } */ else {
+        }  else {
             Log.info("Failed to download blob " + blobId + " with error: " + result.error());
         }
     }

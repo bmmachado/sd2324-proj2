@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.logging.Logger;
 
 import utils.Args;
+import utils.Props;
 import utils.Token;
 
 
@@ -19,7 +20,7 @@ public abstract class AbstractServer {
 		this.service = service;
 		this.serverURI = serverURI;
 		
-		Token.set( Args.valueOf("-token", ""));
+		Token.set( Args.valueOf("-token", Props.getValue("SHARED_SECRET")));
 	}
 		
 	abstract protected void start() throws IOException;

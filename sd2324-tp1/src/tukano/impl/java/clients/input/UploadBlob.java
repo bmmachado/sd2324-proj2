@@ -7,6 +7,7 @@ import utils.Hash;
 import utils.Hex;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.logging.Logger;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
@@ -26,7 +27,7 @@ public class UploadBlob {
             return;
         }
 
-        String blobId = args[0];
+        String blobURL = args[0];
 
         ByteBuffer buf = ByteBuffer.allocate(1000000);
         ReadableByteChannel channel = Channels.newChannel(System.in);
@@ -38,7 +39,7 @@ public class UploadBlob {
         ClientFactory<ExtendedBlobs> blobsClientFactory = Clients.BlobsClients;
         ExtendedBlobs blobsClient = blobsClientFactory.get();
 
-        var result = blobsClient.upload(blobId, bytes);
+        var result = blobsClient.upload(blobURL, bytes);
 
         if (result.isOK())
             Log.info("Upload blob");
