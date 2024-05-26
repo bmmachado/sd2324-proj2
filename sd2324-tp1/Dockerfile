@@ -5,6 +5,7 @@ WORKDIR /home/sd
 
 ADD hibernate.cfg.xml .
 ADD shorts.props .
+ADD mov.mp4 .
 
 COPY tls/*.jks /home/sd/
 
