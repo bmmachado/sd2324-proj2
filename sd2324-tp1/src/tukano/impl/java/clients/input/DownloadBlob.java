@@ -22,12 +22,15 @@ public class DownloadBlob {
             return;
         }
 
-        String blobId = args[0];
+        String blobURL = args[0];
+        String blobId = blobURL.substring(blobURL.lastIndexOf("/") + 1, blobURL.lastIndexOf("?"));
+        String timestamp = blobURL.substring(blobURL.indexOf("=") + 1, blobURL.lastIndexOf("&"));
+        String verifier = blobURL.substring(blobURL.lastIndexOf("=") + 1);
 
         ClientFactory<ExtendedBlobs> blobsClientFactory = Clients.BlobsClients;
         ExtendedBlobs blobsClient = blobsClientFactory.get();
 
-        var result = blobsClient.download(blobId);
+        var result = blobsClient.download(blobId, timestamp, verifier);
         if (result.isOK())
             Log.info(() -> format("download : file, sha256 = %s\n", Hex.of(Hash.sha256(result.value()))));
 

@@ -17,19 +17,29 @@ public class RestBlobsClient extends RestClient implements ExtendedBlobs {
         super(serverURI, RestBlobs.PATH);
     }
 
-    private Result<Void> _upload(String blobURL, byte[] bytes) {
-        String verifier = blobURL.substring(blobURL.lastIndexOf("/") + 1);
+    private Result<Void> _upload(String blobId, String timestamp, String verifier, byte[] bytes) {
+        /*String blobID = blobURL.substring(blobURL.lastIndexOf("/") + 1, blobURL.lastIndexOf("?"));
+        String timestamp = blobURL.substring(blobURL.indexOf("=") + 1, blobURL.lastIndexOf("&"));
+        String verifier = blobURL.substring(blobURL.lastIndexOf("=") + 1);*/
         return super.toJavaResult(
-                target.path(verifier)
+                target.path(blobId)
+                        .path(RestExtendedBlobs.BLOBS)
+                        .queryParam("timestamp", timestamp)
+                        .queryParam("verifier", verifier)
                         .request()
                         .post(Entity.entity(bytes, MediaType.APPLICATION_OCTET_STREAM)));
 
     }
 
-    private Result<byte[]> _download(String blobURL) {
-        String verifier = blobURL.substring(blobURL.lastIndexOf("/") + 1);
+    private Result<byte[]> _download(String blobId, String timestamp, String verifier) {
+       /* String blobID = blobURL.substring(blobURL.lastIndexOf("/") + 1, blobURL.lastIndexOf("?"));
+        String timestamp = blobURL.substring(blobURL.indexOf("=") + 1, blobURL.lastIndexOf("&"));
+        String verifier = blobURL.substring(blobURL.lastIndexOf("=") + 1);*/
         return super.toJavaResult(
-                target.path(verifier)
+                target.path(blobId)
+                        .path(RestExtendedBlobs.BLOBS)
+                        .queryParam("timestamp", timestamp)
+                        .queryParam("verifier", verifier)
                         .request()
                         .accept(MediaType.APPLICATION_OCTET_STREAM)
                         .get(), byte[].class);
@@ -53,18 +63,18 @@ public class RestBlobsClient extends RestClient implements ExtendedBlobs {
     }
 
     @Override
-    public Result<Void> upload(String blobURL, byte[] bytes) {
-        return super.reTry(() -> _upload(blobURL, bytes));
+    public Result<Void> upload(String blobId, String timestamp, String verifier, byte[] bytes) {
+        return super.reTry(() -> _upload(blobId, timestamp, verifier, bytes));
     }
 
     @Override
-    public Result<byte[]> download(String blobURL) {
-        return super.reTry(() -> _download(blobURL));
+    public Result<byte[]> download(String blobId, String timestamp, String verifier) {
+        return super.reTry(() -> _download(blobId, timestamp, verifier));
     }
 
     @Override
-    public Result<Void> delete(String blobURL, String token) {
-        return super.reTry(() -> _delete(blobURL, token));
+    public Result<Void> delete(String blobId, String token) {
+        return super.reTry(() -> _delete(blobId, token));
     }
 
     @Override

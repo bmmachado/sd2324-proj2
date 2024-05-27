@@ -29,6 +29,10 @@ public class UploadBlob {
 
         String blobURL = args[0];
 
+        String blobID = blobURL.substring(blobURL.lastIndexOf("/") + 1, blobURL.lastIndexOf("?"));
+        String timestamp = blobURL.substring(blobURL.indexOf("=") + 1, blobURL.lastIndexOf("&"));
+        String verifier = blobURL.substring(blobURL.lastIndexOf("=") + 1);
+
         ByteBuffer buf = ByteBuffer.allocate(1000000);
         ReadableByteChannel channel = Channels.newChannel(System.in);
         while (channel.read(buf) >= 0)
@@ -39,7 +43,7 @@ public class UploadBlob {
         ClientFactory<ExtendedBlobs> blobsClientFactory = Clients.BlobsClients;
         ExtendedBlobs blobsClient = blobsClientFactory.get();
 
-        var result = blobsClient.upload(blobURL, bytes);
+        var result = blobsClient.upload(blobID, timestamp, verifier, bytes);
 
         if (result.isOK())
             Log.info("Upload blob");

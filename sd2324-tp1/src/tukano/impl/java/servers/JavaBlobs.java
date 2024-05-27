@@ -22,147 +22,149 @@ import java.util.logging.Logger;
 
 import tukano.api.java.Result;
 import tukano.impl.api.java.ExtendedBlobs;
-import tukano.impl.java.clients.Clients;
 import utils.*;
 
 public class JavaBlobs implements ExtendedBlobs {
 
-	private static final String ADMIN_TOKEN = Props.getValue("SHARED_SECRET");
-	
-	private static final String BLOBS_ROOT_DIR = "/tmp/blobs/";
-	
-	private static Logger Log = Logger.getLogger(JavaBlobs.class.getName());
+    private static final String ADMIN_TOKEN = Props.getValue("SHARED_SECRET");
 
-	private static final int CHUNK_SIZE = 4096;
+    private static final String BLOBS_ROOT_DIR = "/tmp/blobs/";
 
-	@Override
-	public Result<Void> upload(String verifier, byte[] bytes) {
-		Log.info(() -> format("upload from : verifier = %s, sha256 = %s\n", verifier, Hex.of(Hash.sha256(bytes))));
+    private static Logger Log = Logger.getLogger(JavaBlobs.class.getName());
 
-		/*if (!validBlobId(blobId))
-			return error(FORBIDDEN);*/
+    private static final int CHUNK_SIZE = 4096;
 
-		if(!validToken(verifier))
-			return error(FORBIDDEN);
+    @Override
+    public Result<Void> upload(String blobId, String timestamp, String sharedSecret, byte[] bytes) {
+        Log.info(() -> format("upload : verifier = %s, sha256 = %s\n", blobId, Hex.of(Hash.sha256(bytes))));
 
-		var file = toFilePath(verifier);
-		if (file == null)
-			return error(BAD_REQUEST);
+        if (blobId.contains("?")) {
+            timestamp = blobId.substring(blobId.indexOf("timestamp=") + 10, blobId.indexOf("&"));
+            sharedSecret = blobId.substring(blobId.indexOf("verifier=") + 9);
+        }
 
-		if (file.exists()) {
-			if (Arrays.equals(Hash.sha256(bytes), Hash.sha256(IO.read(file))))
-				return ok();
-			else
-				return error(CONFLICT);
+        if (!validToken(Long.parseLong(timestamp), sharedSecret))
+            return error(FORBIDDEN);
 
-		}
-		IO.write(file, bytes);
-		return ok();
-	}
+        var file = toFilePath(blobId);
+        if (file == null)
+            return error(BAD_REQUEST);
 
-	@Override
-	public Result<byte[]> download(String verifier) {
-		Log.info(() -> format("download : verifier = %s\n", verifier));
-		if (verifier == null)
-			return error(BAD_REQUEST);
+        if (file.exists()) {
+            if (Arrays.equals(Hash.sha256(bytes), Hash.sha256(IO.read(file))))
+                return ok();
+            else
+                return error(CONFLICT);
 
-		if(!validToken( verifier ))
-			return error(FORBIDDEN);
+        }
+        IO.write(file, bytes);
+        return ok();
+    }
 
-		var file = toFilePath(verifier);
-		if (file == null)
-			return error(BAD_REQUEST);
+    @Override
+    public Result<byte[]> download(String blobId, String timestamp, String sharedSecret) {
+        Log.info(() -> format("download : blobId = %s\n", blobId));
 
-		if (file.exists())
-			return ok(IO.read(file));
-		else
-			return error(NOT_FOUND);
-	}
+        if (!validToken(Long.parseLong(timestamp), sharedSecret))
+            return error(FORBIDDEN);
 
-	@Override
-	public Result<Void> downloadToSink(String blobId, Consumer<byte[]> sink) {
-		Log.info(() -> format("downloadToSink : blobId = %s\n", blobId));
+        var file = toFilePath(blobId);
+        if (file == null)
+            return error(BAD_REQUEST);
 
-		var file = toFilePath(blobId);
+        if (file.exists())
+            return ok(IO.read(file));
+        else
+            return error(NOT_FOUND);
+    }
 
-		if (file == null)
-			return error(BAD_REQUEST);
+    @Override
+    public Result<Void> downloadToSink(String blobId, Consumer<byte[]> sink) {
+        Log.info(() -> format("downloadToSink : blobId = %s\n", blobId));
 
-		if( ! file.exists() )
-			return error(NOT_FOUND);
+        var timestamp = blobId.substring(blobId.indexOf("timestamp=") + 10, blobId.indexOf("&"));
+        var sharedSecret = blobId.substring(blobId.indexOf("verifier=") + 9);
 
-		try (var fis = new FileInputStream(file)) {
-			int n;
-			var chunk = new byte[CHUNK_SIZE];
-			while ((n = fis.read(chunk)) > 0)
-				sink.accept(Arrays.copyOf(chunk, n));
+        if (!validToken(Long.parseLong(timestamp), sharedSecret))
+            return error(FORBIDDEN);
 
-			return ok();
-		} catch (IOException x) {
-			return error(INTERNAL_ERROR);
-		}
-	}
+        var file = toFilePath(blobId);
+        if (file == null)
+            return error(BAD_REQUEST);
 
-	@Override
-	public Result<Void> delete(String blobId, String token) {
-		Log.info(() -> format("delete : blobId = %s, token=%s\n", blobId, token));
+        if (!file.exists())
+            return error(NOT_FOUND);
 
-		if (blobId == null)
-			return error(BAD_REQUEST);
-	
-		if( ! Token.matches( token ) )
-			return error(FORBIDDEN);
+        try (var fis = new FileInputStream(file)) {
+            int n;
+            var chunk = new byte[CHUNK_SIZE];
+            while ((n = fis.read(chunk)) > 0)
+                sink.accept(Arrays.copyOf(chunk, n));
 
-		var file = toFilePath(blobId);
-		if (file == null)
-			return error(BAD_REQUEST);
+            return ok();
+        } catch (IOException x) {
+            return error(INTERNAL_ERROR);
+        }
+    }
 
-		if( ! file.exists() )
-			return error(NOT_FOUND);
-			
-		IO.delete( file );
-		return ok();
-	}
-	
-	@Override
-	public Result<Void> deleteAllBlobs(String userId, String token) {
-		Log.info(() -> format("deleteAllBlobs : userId = %s, token=%s\n", userId, token));
+    @Override
+    public Result<Void> delete(String blobId, String token) {
+        Log.info(() -> format("delete : blobId = %s, token=%s\n", blobId, token));
 
-		if( ! Token.matches( token ) )
-			return error(FORBIDDEN);
-		
-		try {
-			var path = new File(BLOBS_ROOT_DIR + userId );
-			Files.walk(path.toPath()).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
-			return ok();
-		} catch (IOException e) {
-			e.printStackTrace();
-			return error(INTERNAL_ERROR);
-		}
-	}
+        if (blobId == null)
+            return error(BAD_REQUEST);
 
-	private File toFilePath(String blobID) {
-		if(blobID.contains("?"))
-			blobID = blobID.substring(0, blobID.indexOf('?'));
-		var parts = blobID.split("-");
-		if (parts.length != 2)
-			return null;
+        if (!Token.matches(token))
+            return error(FORBIDDEN);
 
-		var res = new File(BLOBS_ROOT_DIR + parts[0] + "/" + parts[1]);
-		res.getParentFile().mkdirs();
+        var file = toFilePath(blobId);
+        if (file == null)
+            return error(BAD_REQUEST);
 
-		return res;
-	}
+        if (!file.exists())
+            return error(NOT_FOUND);
 
-	private boolean validToken(String blobId) {
-		var timeLimit = Long.parseLong(blobId.substring(blobId.indexOf('=') + 1, blobId.indexOf('&')));
-		var secret = blobId.substring(blobId.lastIndexOf('=') + 1);
+        IO.delete(file);
+        return ok();
+    }
 
-		if (timeLimit < System.currentTimeMillis())
-			return false;
+    @Override
+    public Result<Void> deleteAllBlobs(String userId, String token) {
+        Log.info(() -> format("deleteAllBlobs : userId = %s, token=%s\n", userId, token));
 
-		return Hash.sha256(IP.hostName(), String.valueOf(timeLimit), ADMIN_TOKEN).equals(secret);
-	}
+        if (!Token.matches(token))
+            return error(FORBIDDEN);
+
+        try {
+            var path = new File(BLOBS_ROOT_DIR + userId);
+            Files.walk(path.toPath()).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+            return ok();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return error(INTERNAL_ERROR);
+        }
+    }
+
+    private File toFilePath(String blobID) {
+        if (blobID.contains("?"))
+            blobID = blobID.substring(0, blobID.indexOf('?'));
+        var parts = blobID.split("-");
+        if (parts.length != 2)
+            return null;
+
+        var res = new File(BLOBS_ROOT_DIR + parts[0] + "/" + parts[1]);
+        res.getParentFile().mkdirs();
+
+        return res;
+    }
+
+    private boolean validToken(long timeLimit, String secret) {
+
+        if (timeLimit < System.currentTimeMillis())
+            return false;
+
+        return Hash.sha256(IP.hostName(), String.valueOf(timeLimit), ADMIN_TOKEN).equals(secret);
+    }
 
 	/*private boolean validBlobId(String blobId) {
 		return Clients.ShortsClients.get().getShort(blobId).isOK();

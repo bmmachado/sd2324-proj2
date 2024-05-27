@@ -28,10 +28,10 @@ public class JavaBlobsDropbox implements ExtendedBlobs {
     private static Logger Log = Logger.getLogger(JavaBlobs.class.getName());
 
     @Override
-    public Result<Void> upload(String verifier, byte[] bytes) {
+    public Result<Void> upload(String blobId, String timestamp, String verifier, byte[] bytes) {
         Log.info(() -> format("upload : blobId = %s, sha256 = %s\n", verifier, Hex.of(Hash.sha256(bytes))));
 
-        if (verifier == null)
+        if (blobId == null)
             return error(BAD_REQUEST);
 
         if (!validToken(verifier))
@@ -60,10 +60,10 @@ public class JavaBlobsDropbox implements ExtendedBlobs {
     }
 
     @Override
-    public Result<byte[]> download(String verifier) {
+    public Result<byte[]> download(String blobId, String timestamp, String verifier) {
         Log.info(() -> format("download : verifier = %s\n", verifier));
 
-        if (verifier == null)
+        if (blobId == null)
             return error(BAD_REQUEST);
 
         if(!validToken( verifier ))

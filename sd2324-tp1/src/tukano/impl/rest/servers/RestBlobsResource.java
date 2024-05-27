@@ -23,13 +23,13 @@ public class RestBlobsResource extends RestResource implements RestExtendedBlobs
     }
 
     @Override
-    public void upload(String blobId, byte[] bytes) {
-        super.resultOrThrow(impl.upload(blobId, bytes));
+    public void upload(String blobId, String timestamp, String verifier, byte[] bytes) {
+        super.resultOrThrow(impl.upload(blobId, timestamp, verifier, bytes));
     }
 
     @Override
-    public byte[] download(String blobId) {
-        return super.resultOrThrow(impl.download(blobId));
+    public byte[] download(String blobId, String timestamp, String verifier) {
+        return super.resultOrThrow(impl.download(blobId, timestamp, verifier));
     }
 
     @Override

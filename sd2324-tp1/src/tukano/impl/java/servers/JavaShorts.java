@@ -51,7 +51,7 @@ public class JavaShorts implements ExtendedShorts {
 	private static final long SHORTS_CACHE_EXPIRATION = 3000;
 	private static final long BLOBS_USAGE_CACHE_EXPIRATION = 10000;
 
-	private static final long BLOBS_TRANSFER_TIMEOUT = 600000;
+	private static final long BLOBS_TRANSFER_TIMEOUT = 43200000;
 
 
 	static record Credentials(String userId, String pwd) {
@@ -111,10 +111,13 @@ public class JavaShorts implements ExtendedShorts {
 			var shortId = format("%s-%d", userId, counter.incrementAndGet());
 			var blobServerURI = getLeastLoadedBlobServerURI();
 			var timeLimit  = System.currentTimeMillis()+BLOBS_TRANSFER_TIMEOUT;
-			var blobUrl = format("%s/%s/%s", blobServerURI, Blobs.NAME, shortId);
+			//var blobUrl = format("%s/%s/%s", blobServerURI, Blobs.NAME, shortId);
+			var blobUrl = format("%s/%s/%s?timestamp=%s&verifier=%s", blobServerURI, Blobs.NAME, shortId, System.currentTimeMillis()+BLOBS_TRANSFER_TIMEOUT, getAdminToken(timeLimit, blobServerURI));
 			var shrt = new Short(shortId, userId, blobUrl);
-			Result<Short> r = DB.insertOne(shrt);
 
+			return  DB.insertOne(shrt);
+
+			/*Result<Short> r = DB.insertOne(shrt);
 			if(!r.isOK())
 				return r;
 
@@ -122,7 +125,7 @@ public class JavaShorts implements ExtendedShorts {
 			blobUrl = format("%s/%s/%s?timestamp=%s&verifier=%s", blobServerURI, Blobs.NAME, shortId, timeLimit, sharedSecret);
 			var tempShrt = new Short(shortId, userId, blobUrl);
 
-			return ok(tempShrt);
+			return ok(tempShrt);*/
 		});
 	}
 
@@ -134,12 +137,12 @@ public class JavaShorts implements ExtendedShorts {
 			return error(BAD_REQUEST);
 
 		var shrt = shortFromCache(shortId);
-		var blobServerURL = shrt.value().getBlobUrl();
+		/*var blobServerURL = shrt.value().getBlobUrl();
 		var timeLimit  = System.currentTimeMillis()+BLOBS_TRANSFER_TIMEOUT;
 		var sharedSecret = getAdminToken(timeLimit, blobServerURL);
 		var blobUrl = format("%s?timestamp=%s&verifier=%s", blobServerURL, timeLimit, sharedSecret);
 
-		shrt.value().setBlobUrl(blobUrl);
+		shrt.value().setBlobUrl(blobUrl);*/
 
 		return shrt;
 	}
