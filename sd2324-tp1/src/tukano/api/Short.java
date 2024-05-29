@@ -2,6 +2,7 @@ package tukano.api;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.Lob;
 
 /**
  * Represents a Short video uploaded by an user.
@@ -18,6 +19,7 @@ public class Short {
 	@Id
 	String shortId;
 	String ownerId;
+	@Lob
 	String blobUrl;
 	long timestamp;
 	int totalLikes;

@@ -34,7 +34,7 @@ public class JavaBlobsDropbox implements ExtendedBlobs {
         if (blobId == null)
             return error(BAD_REQUEST);
 
-        if (!validToken(verifier))
+        if (!validToken(blobId))
             return error(FORBIDDEN);
 
         var file = toStringPath(verifier);
@@ -66,7 +66,7 @@ public class JavaBlobsDropbox implements ExtendedBlobs {
         if (blobId == null)
             return error(BAD_REQUEST);
 
-        if(!validToken( verifier ))
+        if(!validToken( blobId ))
             return error(FORBIDDEN);
 
         var file = toStringPath(verifier);
