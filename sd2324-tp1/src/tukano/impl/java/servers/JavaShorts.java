@@ -57,7 +57,7 @@ public class JavaShorts implements ExtendedShorts {
     private static final long USER_CACHE_EXPIRATION = 3000;
     private static final long SHORTS_CACHE_EXPIRATION = 3000;
     private static final long BLOBS_USAGE_CACHE_EXPIRATION = 10000;
-    private static final long BLOBS_TRANSFER_TIMEOUT = 3600000;
+    private static final long BLOBS_TRANSFER_TIMEOUT = 10000;
     private static final String BLOBS_URL_STR = "%s/%s/%s";
     private static final String LIMIT_BLOBS_URL_STR = "%s/%s/%s?timestamp=%s&verifier=%s";
 

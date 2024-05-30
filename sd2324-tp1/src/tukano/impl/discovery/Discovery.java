@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.logging.Logger;
 
 import utils.Sleep;
@@ -57,6 +58,7 @@ class DiscoveryImpl implements Discovery {
 	static final int DISCOVERY_RETRY_TIMEOUT = 5000;
 	static final int DISCOVERY_ANNOUNCE_PERIOD = 1000;
 	static final InetSocketAddress DISCOVERY_ADDR = new InetSocketAddress("226.226.226.226", 2266);
+  static final int SERVERS_TTL = 3000;
 
 	// Used separate the two fields that make up a service announcement.
 	private static final String DELIMITER = "\t";
@@ -66,6 +68,8 @@ class DiscoveryImpl implements Discovery {
 	private static Discovery singleton;
 
 	private Map<String, Set<URI>> uris = new ConcurrentHashMap<>();
+
+  private Map<String, Long> serversTTL = new ConcurrentHashMap<>();
 	
 	synchronized static Discovery getInstance() {
 		if (singleton == null) {
@@ -107,11 +111,17 @@ class DiscoveryImpl implements Discovery {
 	public URI[] knownUrisOf(String serviceName, int minEntries) {
 		while(true) {
 			var res = uris.getOrDefault(serviceName, Collections.emptySet());
-			if( res.size() >= minEntries )
-				return res.toArray( new URI[res.size()]);
+      CopyOnWriteArraySet<URI> validUris = new CopyOnWriteArraySet<>();
+      for (var uri : res) {
+        var ttl = serversTTL.get(uri.toString());
+        if (ttl > System.currentTimeMillis())
+          validUris.add(uri);
+      }
+			if( validUris.size() >= minEntries )
+				return validUris.toArray( new URI[validUris.size()]);
 			else
 				Sleep.ms(DISCOVERY_ANNOUNCE_PERIOD);
-				
+
 		}
 	}
 
@@ -133,6 +143,9 @@ class DiscoveryImpl implements Discovery {
 							var serviceName = parts[0];
 							var uri = URI.create(parts[1]);
 							uris.computeIfAbsent(serviceName, (k) -> ConcurrentHashMap.newKeySet()).add( uri );
+              var ttl = System.currentTimeMillis() + SERVERS_TTL;
+              serversTTL.compute(uri.toString(), (k, v) -> ttl);
+              Log.info(String.format("Added uri = %s with TTL = %s\n", uri.toString(), serversTTL.get(uri.toString())));
 						}
 
 					} catch (Exception x) {
