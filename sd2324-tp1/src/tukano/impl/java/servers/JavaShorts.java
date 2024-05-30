@@ -58,6 +58,8 @@ public class JavaShorts implements ExtendedShorts {
     private static final long SHORTS_CACHE_EXPIRATION = 3000;
     private static final long BLOBS_USAGE_CACHE_EXPIRATION = 10000;
     private static final long BLOBS_TRANSFER_TIMEOUT = 3600000;
+    private static final String BLOBS_URL_STR = "%s/%s/%s";
+    private static final String LIMIT_BLOBS_URL_STR = "%s/%s/%s?timestamp=%s&verifier=%s";
 
 
     static record Credentials(String userId, String pwd) {
@@ -94,21 +96,22 @@ public class JavaShorts implements ExtendedShorts {
             .expireAfterWrite(Duration.ofMillis(BLOBS_USAGE_CACHE_EXPIRATION)).removalListener((e) -> {
             }).build(new CacheLoader<>() {
                 @Override
-                public Map<String, Long> load(String __) {
+                public Map<String, Long> load(String __) throws Exception {
 
-                    updateBlobsCache();
-                    final var QUERY = "SELECT REGEXP_SUBSTRING(s.blobUrl, '^(\\w+:\\/\\/)?([^\\/]+)\\/([^\\/]+)') AS baseURI, count('*') AS usage From Short s GROUP BY baseURI";
-
+                    final var QUERY = "SELECT REGEXP_SUBSTRING(s.blobUrl, '^(\\w+:\\/\\/)?([^\\/]+)\\/([^\\/]+).*') AS baseURI, count('*') AS usage From Short s GROUP BY baseURI";
                     var hits = DB.sql(QUERY, BlobServerCount.class);
 
-                    var candidates = hits.stream().collect(Collectors.toMap(BlobServerCount::baseURI, BlobServerCount::count));
+                    var candidates = hits.stream()
+                            .collect(Collectors.toMap(BlobServerCount::baseURI, BlobServerCount::count));
 
                     for (var uri : BlobsClients.all())
                         candidates.putIfAbsent(uri.toString(), 0L);
 
+                    updateBlobsRep();
                     return candidates;
                 }
             });
+
 
     @Override
     public Result<Short> createShort(String userId, String password) {
@@ -122,15 +125,13 @@ public class JavaShorts implements ExtendedShorts {
             var blobServerURI = getLeastLoadedBlobServerURI();
             Log.info(() -> format("Selected blobServerURI = %s\n", blobServerURI));
 
-            var timeLimit = System.currentTimeMillis() + BLOBS_TRANSFER_TIMEOUT;
-            ;
+            var shrt = DB.insertOne(new Short(shortId, userId, blobServerURI));
 
-            var blobURLs = buildBlobsURLs(blobServerURI, shortId, timeLimit);
-            Log.info(() -> format("createShort : blobUrl = %s\n", blobURLs));
+            var blobURLs = buildBlobsURLs(shrt.value());
+            shrt.value().setBlobUrl(blobURLs);
+            Log.info(() -> format("createShort : short = %s\n", shrt.value().toString()));
 
-            var shrt = new Short(shortId, userId, blobURLs);
-
-            return DB.insertOne(shrt);
+            return ok(shrt.value());
         });
     }
 
@@ -143,7 +144,15 @@ public class JavaShorts implements ExtendedShorts {
 
         var shrt = shortFromCache(shortId);
 
-        return shrt;
+        if (!shrt.isOK())
+            return shrt;
+
+        var blobURLs = buildBlobsURLs(shrt.value());
+        Log.info(() -> format("createShort : blobUrl = %s\n", blobURLs));
+
+        shrt.value().setBlobUrl(blobURLs);
+
+        return ok(shrt.value());
     }
 
     @Override
@@ -322,8 +331,6 @@ public class JavaShorts implements ExtendedShorts {
     static record BlobServerCount(String baseURI, Long count) {
     }
 
-    ;
-
     private long totalShortsInDatabase() {
         var hits = DB.sql("SELECT count('*') FROM Short", Long.class);
         return 1L + (hits.isEmpty() ? 0L : hits.get(0));
@@ -334,24 +341,25 @@ public class JavaShorts implements ExtendedShorts {
         return Hash.sha256(ip, String.valueOf(timelimit), ADMIN_TOKEN);
     }
 
-    private String buildBlobsURLs(String blobServerURI, String shortId, long timeLimit) {
+    private String buildBlobsURLs(Short shrt) {
+
         var uris = Discovery.getInstance().knownUrisOf(Blobs.NAME, 1);
 
-        var token = getAdminToken(timeLimit, blobServerURI);
-        StringBuilder blobURLs = new StringBuilder(format("%s/%s/%s?timestamp=%s&verifier=%s",
-                blobServerURI, Blobs.NAME, shortId, timeLimit, getAdminToken(timeLimit, blobServerURI)));
+        var timeLimit = System.currentTimeMillis() + BLOBS_TRANSFER_TIMEOUT;
+        var blobURLs = new StringBuilder(format(LIMIT_BLOBS_URL_STR, uris[0], Blobs.NAME, shrt.getShortId(),
+                timeLimit, getAdminToken(timeLimit, uris[0].toString())));
 
         for (var uri : uris) {
-            if (uri != null && !uri.toString().equals(blobServerURI)) {
+            if (uri != null && !uri.toString().equals(uris[0].toString())) {
                 Log.info(() -> format("buildBlobsURLs : uri = %s\n", uri));
-                blobURLs.append(format("|%s/%s/%s?timestamp=%s&verifier=%s",
-                        uri, Blobs.NAME, shortId, timeLimit, getAdminToken(timeLimit, uri.toString())));
+                blobURLs.append(format("|" + LIMIT_BLOBS_URL_STR, uri, Blobs.NAME, shrt.getShortId(), timeLimit,
+                        getAdminToken(timeLimit, uri.toString())));
             }
         }
         return blobURLs.toString();
     }
 
-    private void updateBlobsCache() {
+    private void updateBlobsRep() {
         if (startUpdatingRepBlobs) {
 
             executorService.scheduleAtFixedRate(() -> {
