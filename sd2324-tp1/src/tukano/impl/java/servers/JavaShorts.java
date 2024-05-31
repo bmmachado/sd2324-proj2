@@ -41,24 +41,21 @@ import tukano.impl.api.java.ExtendedShorts;
 import tukano.impl.discovery.Discovery;
 import tukano.impl.java.servers.data.Following;
 import tukano.impl.java.servers.data.Likes;
+import tukano.impl.java.servers.monitoring.ServiceMonitor;
 import utils.*;
 
 public class JavaShorts implements ExtendedShorts {
-    private static final String BLOB_COUNT = "*";
+    public static final String BLOB_COUNT = "*";
 
     private static Logger Log = Logger.getLogger(JavaShorts.class.getName());
 
     private static final String ADMIN_TOKEN = Props.getValue("SHARED_SECRET");
 
     AtomicLong counter = new AtomicLong(totalShortsInDatabase());
-
-    ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
-    private boolean startUpdatingRepBlobs = true;
     private static final long USER_CACHE_EXPIRATION = 3000;
     private static final long SHORTS_CACHE_EXPIRATION = 3000;
     private static final long BLOBS_USAGE_CACHE_EXPIRATION = 10000;
     private static final long BLOBS_TRANSFER_TIMEOUT = 10000;
-    private static final String BLOBS_URL_STR = "%s/%s/%s";
     private static final String LIMIT_BLOBS_URL_STR = "%s/%s/%s?timestamp=%s&verifier=%s";
 
 
@@ -80,7 +77,7 @@ public class JavaShorts implements ExtendedShorts {
                 }
             });
 
-    protected final LoadingCache<String, Result<Short>> shortsCache = CacheBuilder.newBuilder()
+    protected static final LoadingCache<String, Result<Short>> shortsCache = CacheBuilder.newBuilder()
             .expireAfterWrite(Duration.ofMillis(SHORTS_CACHE_EXPIRATION)).removalListener((e) -> {
             }).build(new CacheLoader<>() {
                 @Override
@@ -92,7 +89,7 @@ public class JavaShorts implements ExtendedShorts {
                 }
             });
 
-    protected final LoadingCache<String, Map<String, Long>> blobCountCache = CacheBuilder.newBuilder()
+    public static final LoadingCache<String, Map<String, Long>> blobCountCache = CacheBuilder.newBuilder()
             .expireAfterWrite(Duration.ofMillis(BLOBS_USAGE_CACHE_EXPIRATION)).removalListener((e) -> {
             }).build(new CacheLoader<>() {
                 @Override
@@ -107,7 +104,8 @@ public class JavaShorts implements ExtendedShorts {
                     for (var uri : BlobsClients.all())
                         candidates.putIfAbsent(uri.toString(), 0L);
 
-                    updateBlobsRep();
+                    //updateBlobsRep();
+                    ServiceMonitor.getInstance();
                     return candidates;
                 }
             });
@@ -120,16 +118,12 @@ public class JavaShorts implements ExtendedShorts {
         return errorOrResult(okUser(userId, password), user -> {
 
             var shortId = format("%s-%d", userId, counter.incrementAndGet());
-            Log.info(() -> format("Generated shortId = %s\n", shortId));
-
             var blobServerURI = getLeastLoadedBlobServerURI();
-            Log.info(() -> format("Selected blobServerURI = %s\n", blobServerURI));
 
             var shrt = DB.insertOne(new Short(shortId, userId, blobServerURI));
 
             var blobURLs = buildBlobsURLs(shrt.value());
             shrt.value().setBlobUrl(blobURLs);
-            Log.info(() -> format("createShort : short = %s\n", shrt.value().toString()));
 
             return ok(shrt.value());
         });
@@ -148,7 +142,6 @@ public class JavaShorts implements ExtendedShorts {
             return shrt;
 
         var blobURLs = buildBlobsURLs(shrt.value());
-        Log.info(() -> format("createShort : blobUrl = %s\n", blobURLs));
 
         shrt.value().setBlobUrl(blobURLs);
 
@@ -173,7 +166,6 @@ public class JavaShorts implements ExtendedShorts {
                     for (String url : blobUrls)
                         BlobsClients.get().delete(url, Token.get());
 
-                    //BlobsClients.get().delete(shrt.getBlobUrl(), Token.get() );
                 });
             });
         });
@@ -336,7 +328,7 @@ public class JavaShorts implements ExtendedShorts {
         return 1L + (hits.isEmpty() ? 0L : hits.get(0));
     }
 
-    private String getAdminToken(long timelimit, String blobUrl) {
+    private static String getAdminToken(long timelimit, String blobUrl) {
         String ip = blobUrl.substring(blobUrl.indexOf("://") + 3, blobUrl.lastIndexOf(":"));
         return Hash.sha256(ip, String.valueOf(timelimit), ADMIN_TOKEN);
     }
@@ -359,36 +351,7 @@ public class JavaShorts implements ExtendedShorts {
         return blobURLs.toString();
     }
 
-    private void updateBlobsRep() {
-        if (startUpdatingRepBlobs) {
-
-            executorService.scheduleAtFixedRate(() -> {
-
-                try {
-                    var servers = blobCountCache.get(BLOB_COUNT);
-
-                    Set<String> uris = new HashSet<>();
-                    for (ExtendedBlobs blob : BlobsClients.all()) {
-                        uris.add(blob.toString());
-                    }
-
-                    for (var blobserver : servers.keySet()) {
-                        if (!uris.contains(blobserver)) {
-                            Log.info(() -> format("Removing blob server %s from the list of candidates\n\n", blobserver));
-                            removeFromBlobUrl(blobserver);
-                            blobCountCache.invalidate(blobserver);
-                        }
-                    }
-                } catch (ExecutionException e) {
-                    e.printStackTrace();
-                }
-            }, 0, 5, TimeUnit.SECONDS);
-
-            startUpdatingRepBlobs = false;
-        }
-    }
-
-    private void removeFromBlobUrl(String blobURL) {
+    public static void removeFromBlobUrl(String blobURL) {
         DB.transaction(hibernate -> {
 
             var query = format("SELECT * FROM Short s WHERE s.blobUrl LIKE '%%%s%%'", blobURL);
@@ -423,12 +386,12 @@ public class JavaShorts implements ExtendedShorts {
 
 
                 var timeLimit = System.currentTimeMillis() + BLOBS_TRANSFER_TIMEOUT;
-                var downl = BlobsClients.get(URI.create(uri1)).download(shrt.getShortId(), String.valueOf(timeLimit), getAdminToken(timeLimit, uri1));
+                var download = BlobsClients.get(URI.create(uri1)).download(shrt.getShortId(), String.valueOf(timeLimit), getAdminToken(timeLimit, uri1));
                 byte[] bytes = null;
-                if (downl.isOK())
-                    bytes = downl.value();
+                if (download.isOK())
+                    bytes = download.value();
                 else
-                    Log.info(downl.error().toString());
+                    Log.info(download.error().toString());
 
 
                 var res = BlobsClients.get(URI.create(uri2)).upload(shrt.getShortId(), String.valueOf(timeLimit), getAdminToken(timeLimit, uri2), bytes);

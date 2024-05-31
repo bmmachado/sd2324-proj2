@@ -34,10 +34,10 @@ public class JavaBlobsDropbox implements ExtendedBlobs {
         if (blobId == null)
             return error(BAD_REQUEST);
 
-        if (!validToken(blobId))
+        if (!validToken(Long.parseLong(timestamp), verifier))
             return error(FORBIDDEN);
 
-        var file = toStringPath(verifier);
+        var file = toStringPath(blobId);
         if (file == null)
             return error(BAD_REQUEST);
 
@@ -66,10 +66,10 @@ public class JavaBlobsDropbox implements ExtendedBlobs {
         if (blobId == null)
             return error(BAD_REQUEST);
 
-        if(!validToken( blobId ))
+        if (!validToken(Long.parseLong(timestamp), verifier))
             return error(FORBIDDEN);
 
-        var file = toStringPath(verifier);
+        var file = toStringPath(blobId);
         Log.info(() -> "download : file = " + file + "\n");
 
         var down = new ExternalServices();
@@ -165,9 +165,7 @@ public class JavaBlobsDropbox implements ExtendedBlobs {
         }
     }
 
-    private boolean validToken(String blobId) {
-        var timeLimit = Long.parseLong(blobId.substring(blobId.indexOf('=') + 1, blobId.indexOf('&')));
-        var secret = blobId.substring(blobId.lastIndexOf('=') + 1);
+    private boolean validToken(long timeLimit, String secret) {
 
         if (timeLimit < System.currentTimeMillis())
             return false;
