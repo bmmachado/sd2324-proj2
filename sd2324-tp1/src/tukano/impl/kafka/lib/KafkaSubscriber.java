@@ -38,10 +38,10 @@ public class KafkaSubscriber {
 
     public void start(boolean block, RecordProcessor processor) {
         System.out.println("Starting consumer...");
-       /* if (block)
+        if (block)
             consume(processor);
         else
-            new Thread(() -> consume(processor)).start();*/
+            new Thread(() -> consume(processor)).start();
     }
 
     private void consume(RecordProcessor processor) {

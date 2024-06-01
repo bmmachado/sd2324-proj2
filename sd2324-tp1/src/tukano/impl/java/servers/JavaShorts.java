@@ -84,8 +84,12 @@ public class JavaShorts implements ExtendedShorts {
         // Deserialize the record and update the state accordingly
         String key = record.key();
         String value = record.value();
+        Map<String, String> parsedValue = parseValue(value);
+        String origin = parsedValue.get("origin");
+        String me = IP.hostName();
+        if (!origin.equals(me)) {
         // Handle the event based on key and value
-        switch (key) {
+          switch (key) {
             case "createShort":
                 Log.info("KAFKA: Got request for createShort\n");
                 handleCreateShortEvent(value);
@@ -123,6 +127,9 @@ public class JavaShorts implements ExtendedShorts {
                 handleGetFeedEvent(value);
             default:
                 Log.warning(() -> format("Unknown event key: %s", key));
+          }
+        } else {
+          Log.info("KAFKA: Request came from me. Skipping.\n");
         }
     }
 
