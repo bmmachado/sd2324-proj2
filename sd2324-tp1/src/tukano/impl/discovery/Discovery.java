@@ -145,7 +145,7 @@ class DiscoveryImpl implements Discovery {
 							uris.computeIfAbsent(serviceName, (k) -> ConcurrentHashMap.newKeySet()).add( uri );
               var ttl = System.currentTimeMillis() + SERVERS_TTL;
               serversTTL.compute(uri.toString(), (k, v) -> ttl);
-              Log.info(String.format("Added uri = %s with TTL = %s\n", uri.toString(), serversTTL.get(uri.toString())));
+              //Log.info(String.format("Added uri = %s with TTL = %s\n", uri.toString(), serversTTL.get(uri.toString())));
 						}
 
 					} catch (Exception x) {

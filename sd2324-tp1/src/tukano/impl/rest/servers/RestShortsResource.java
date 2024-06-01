@@ -8,7 +8,10 @@ import tukano.impl.api.java.ExtendedShorts;
 import tukano.impl.api.rest.RestExtendedShorts;
 import tukano.impl.java.servers.JavaShorts;
 
+import jakarta.ws.rs.ext.Provider;
+
 @Singleton
+@Provider
 public class RestShortsResource extends RestResource implements RestExtendedShorts {
 
 	final ExtendedShorts impl;

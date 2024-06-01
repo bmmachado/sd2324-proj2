@@ -44,6 +44,12 @@ import tukano.impl.java.servers.data.Likes;
 import tukano.impl.java.servers.monitoring.ServiceMonitor;
 import utils.*;
 
+import tukano.impl.kafka.lib.KafkaPublisher;
+import tukano.impl.kafka.lib.KafkaSubscriber;
+import tukano.impl.kafka.lib.RecordProcessor;
+import tukano.impl.kafka.sync.SyncPoint;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+
 public class JavaShorts implements ExtendedShorts {
     public static final String BLOB_COUNT = "*";
 
@@ -58,6 +64,83 @@ public class JavaShorts implements ExtendedShorts {
     private static final long BLOBS_TRANSFER_TIMEOUT = 10000;
     private static final String LIMIT_BLOBS_URL_STR = "%s/%s/%s?timestamp=%s&verifier=%s";
 
+    private static final String TOPIC_NAME = "shorts-topic";
+    private static final String KAFKA_BROKER = "kafka:9092";
+
+//    private static final KafkaPublisher kafkaPublisher = KafkaPublisher.createPublisher(KAFKA_BROKER);
+//    private static final KafkaSubscriber kafkaSubscriber = KafkaSubscriber.createSubscriber(KAFKA_BROKER, List.of(TOPIC_NAME), "earliest");
+
+    private KafkaPublisher kafkaPublisher;
+    private KafkaSubscriber kafkaSubscriber;
+
+    public JavaShorts() {
+
+      // start thread for Kafka Subscriber
+      new Thread(() -> {
+        this.kafkaPublisher = KafkaPublisher.createPublisher(KAFKA_BROKER);
+        this.kafkaSubscriber = KafkaSubscriber.createSubscriber(KAFKA_BROKER, List.of(TOPIC_NAME), "earliest");
+        kafkaSubscriber.start(true, this::processRecord);
+      }).start();
+
+    }
+
+    private void processRecord(ConsumerRecord<String, String> record) {
+        // Deserialize the record and update the state accordingly
+        String key = record.key();
+        String value = record.value();
+        // Handle the event based on key and value
+        switch (key) {
+            case "createShort":
+                Log.info("KAFKA: Got request for createShort\n");
+                handleCreateShortEvent(value);
+                break;
+            case "deleteShort":
+                Log.info("KAFKA: Got request for deleteShort\n");
+                handleDeleteShortEvent(value);
+                break;
+            // Mais aqui
+            default:
+                Log.warning(() -> format("Unknown event key: %s", key));
+        }
+    }
+
+    private void handleCreateShortEvent(String value) {
+        String[] parts = value.split(",");
+        String shortId = parts[0];
+        String userId = parts[1];
+        String blobServerURI = parts[2];
+
+        // Recreate the Short object and update the state
+        //Short shrt = new Short(shortId, userId, blobServerURI);
+        // Alterar o shortId apenas para teste de forma a não haver colição na inserção
+        Short shrt = new Short(format("%s-rep", shortId), userId, blobServerURI);
+        shrt.setBlobUrl(buildBlobsURLs(shrt));
+
+        // Update database and cache
+        DB.insertOne(shrt);
+        shortsCache.put(shortId, Result.ok(shrt));
+    }
+
+    private void handleDeleteShortEvent(String value) {
+        String shortId = value;
+
+        Log.info("Remove short " + shortId + " after Kafka notification\n");
+
+    }
+
+    protected void publishToKafka(String topic, String key, String value) {
+        long offset = kafkaPublisher.publish(topic, key, value);
+        Log.info("Published message to topic " + topic + " with offset " + offset);
+    }
+
+    protected void subscribeToKafka(boolean block, RecordProcessor processor) {
+        kafkaSubscriber.start(block, processor);
+    }
+
+    protected void closeKafka() {
+        kafkaPublisher.close();
+        kafkaSubscriber.close();
+    }
 
     static record Credentials(String userId, String pwd) {
         static Credentials from(String userId, String pwd) {
@@ -124,6 +207,12 @@ public class JavaShorts implements ExtendedShorts {
 
             var blobURLs = buildBlobsURLs(shrt.value());
             shrt.value().setBlobUrl(blobURLs);
+
+            // Publish event to Kafka
+            String key = "createShort";
+            String value = String.format("%s,%s,%s", userId, shortId, blobURLs);
+            Log.info(() -> format("About to publish to Kafka : Action = %s, Info = %s\n", key, value));
+            kafkaPublisher.publish(TOPIC_NAME, key, value);
 
             return ok(shrt.value());
         });
