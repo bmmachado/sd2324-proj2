@@ -1,10 +1,8 @@
 package tukano.impl.java.servers.monitoring;
 
-import tukano.api.java.Blobs;
-import tukano.impl.api.java.ExtendedBlobs;
-import tukano.impl.java.servers.JavaShorts;
 
-import java.net.URI;
+import tukano.impl.api.java.ExtendedBlobs;
+
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -24,7 +22,7 @@ public class ServiceMonitor {
     private final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
 
     private ServiceMonitor() {
-        startBlobsMonitoring();
+        startBlobsSync();
     }
 
     public static synchronized ServiceMonitor getInstance() {
@@ -34,7 +32,7 @@ public class ServiceMonitor {
         return instance;
     }
 
-    private void startBlobsMonitoring() {
+    private void startBlobsSync() {
         executorService.scheduleAtFixedRate(() -> {
             try {
                 var servers = blobCountCache.get(BLOB_COUNT);
@@ -46,7 +44,7 @@ public class ServiceMonitor {
 
                 for (var blobserver : servers.keySet()) {
                     if (!uris.contains(blobserver)) {
-                        Log.info(() -> format("Removing blob server %s from the list of candidates\n\n", blobserver));
+                        Log.info(() -> format("Removing blob server %s from the list of candidates\n", blobserver));
                         removeFromBlobUrl(blobserver);
                         blobCountCache.invalidate(blobserver);
                     }

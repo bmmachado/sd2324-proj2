@@ -18,9 +18,6 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -47,7 +44,6 @@ import utils.*;
 import tukano.impl.kafka.lib.KafkaPublisher;
 import tukano.impl.kafka.lib.KafkaSubscriber;
 import tukano.impl.kafka.lib.RecordProcessor;
-import tukano.impl.kafka.sync.SyncPoint;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 public class JavaShorts implements ExtendedShorts {
@@ -63,7 +59,7 @@ public class JavaShorts implements ExtendedShorts {
     private static final long BLOBS_USAGE_CACHE_EXPIRATION = 10000;
     private static final long BLOBS_TRANSFER_TIMEOUT = 10000;
     private static final String LIMIT_BLOBS_URL_STR = "%s/%s/%s?timestamp=%s&verifier=%s";
-
+    private static final String state = "1 0 0";
     private static final String TOPIC_NAME = "shorts-topic";
     private static final String KAFKA_BROKER = "kafka:9092";
 
@@ -75,12 +71,12 @@ public class JavaShorts implements ExtendedShorts {
 
     public JavaShorts() {
 
-      // start thread for Kafka Subscriber
-      new Thread(() -> {
-        this.kafkaPublisher = KafkaPublisher.createPublisher(KAFKA_BROKER);
-        this.kafkaSubscriber = KafkaSubscriber.createSubscriber(KAFKA_BROKER, List.of(TOPIC_NAME), "earliest");
-        kafkaSubscriber.start(true, this::processRecord);
-      }).start();
+        // start thread for Kafka Subscriber
+        new Thread(() -> {
+            this.kafkaPublisher = KafkaPublisher.createPublisher(KAFKA_BROKER);
+            this.kafkaSubscriber = KafkaSubscriber.createSubscriber(KAFKA_BROKER, List.of(TOPIC_NAME), "earliest");
+            kafkaSubscriber.start(true, this::processRecord);
+        }).start();
 
     }
 
@@ -94,25 +90,62 @@ public class JavaShorts implements ExtendedShorts {
                 Log.info("KAFKA: Got request for createShort\n");
                 handleCreateShortEvent(value);
                 break;
+            case "getShort":
+                Log.info("KAFKA: Got request for getShort\n");
+                handleGetShortEvent(value);
+                break;
             case "deleteShort":
                 Log.info("KAFKA: Got request for deleteShort\n");
                 handleDeleteShortEvent(value);
                 break;
-            // Mais aqui
+            case "getShorts":
+                Log.info("KAFKA: Got request for getShorts\n");
+                handleGetShortsEvent(value);
+                break;
+            case "follow":
+                Log.info("KAFKA: Got request for follow\n");
+                handleFollowEvent(value);
+                break;
+            case "followers":
+                Log.info("KAFKA: Got request for followers\n");
+                handleFollowersEvent(value);
+                break;
+            case "like":
+                Log.info("KAFKA: Got request for like\n");
+                handleLikeEvent(value);
+                break;
+            case "likes":
+                Log.info("KAFKA: Got request for likes\n");
+                handlelikesEvent(value);
+                break;
+            case "getFeed":
+                Log.info("KAFKA: Got request for getFeed\n");
+                handleGetFeedEvent(value);
             default:
                 Log.warning(() -> format("Unknown event key: %s", key));
         }
     }
 
-    private void handleCreateShortEvent(String value) {
-        String[] parts = value.split(",");
-        String shortId = parts[0];
-        String userId = parts[1];
-        String blobServerURI = parts[2];
+    private Map<String, String> parseValue(String value) {
+        Map<String, String> map = new HashMap<>();
+        String[] pairs = value.split(" ");
+        for (String pair : pairs) {
+            String[] keyValue = pair.split(":");
+            if (keyValue.length == 2) {
+                map.put(keyValue[0], keyValue[1]);
+            }
+        }
+        return map;
+    }
 
-        // Recreate the Short object and update the state
-        //Short shrt = new Short(shortId, userId, blobServerURI);
-        // Alterar o shortId apenas para teste de forma a não haver colição na inserção
+    private void handleCreateShortEvent(String value) {
+
+        Map<String, String> parsedValue = parseValue(value);
+        String origin = parsedValue.get("origin");
+        String userId = parsedValue.get("userId");
+        String shortId = parsedValue.get("shortId");
+        String blobServerURI = parsedValue.get("blobsURLs");
+
         Short shrt = new Short(format("%s-rep", shortId), userId, blobServerURI);
         shrt.setBlobUrl(buildBlobsURLs(shrt));
 
@@ -121,11 +154,124 @@ public class JavaShorts implements ExtendedShorts {
         shortsCache.put(shortId, Result.ok(shrt));
     }
 
+    private void handleGetShortEvent(String value) {
+
+        Map<String, String> parsedValue = parseValue(value);
+        String origin = parsedValue.get("origin");
+        String userId = parsedValue.get("userId");
+
+        Result<List<String>> result = getShorts(userId);
+
+        if (result.isOK()) {
+            Log.info(() -> format("Short %s retrieved successfully\n", value));
+        } else {
+            Log.warning(() -> format("Failed to retrieve short %s: %s\n", value, result.error()));
+        }
+    }
+
     private void handleDeleteShortEvent(String value) {
-        String shortId = value;
+        Map<String, String> parsedValue = parseValue(value);
+        String origin = parsedValue.get("origin");
+        String shortId = parsedValue.get("shortId");
 
-        Log.info("Remove short " + shortId + " after Kafka notification\n");
+        var shrt = DB.getOne(value, Short.class);
+        if (shrt != null) {
+            Log.info("Remove short " + value + " after Kafka notification\n");
+            // Remove short from database and cache
+            DB.deleteOne(shrt);
+            shortsCache.invalidate(value);
+        } else {
+            Log.warning("Short " + value + " not found in database for deletion\n");
+        }
+    }
 
+    private void handleGetShortsEvent(String value) {
+        Map<String, String> parsedValue = parseValue(value);
+        String origin = parsedValue.get("origin");
+        String userId = parsedValue.get("userId");
+
+        Result<List<String>> result = getShorts(value);
+
+        if (result.isOK()) {
+            Log.info(() -> format("Shorts for user %s retrieved successfully\n", value));
+        } else {
+            Log.warning(() -> format("Failed to retrieve shorts for user %s: %s\n", value, result.error()));
+        }
+    }
+
+    private void handleFollowEvent(String value) {
+        Map<String, String> parsedValue = parseValue(value);
+        String origin = parsedValue.get("origin");
+        String userId1 = parsedValue.get("userId1");
+        String userId2 = parsedValue.get("userId2");
+        boolean isFollowing = Boolean.parseBoolean(parsedValue.get("isFollowing"));
+        String password = parsedValue.get("pwd");
+
+        Result<Void> result = follow(userId1, userId2, isFollowing, password);
+
+        if (result.isOK()) {
+            Log.info(() -> format("User %s followed/unfollowed %s successfully\n", userId1, userId2));
+        } else {
+            Log.warning(() -> format("Failed to follow/unfollow user %s to %s: %s\n", userId1, userId2, result.error()));
+        }
+    }
+
+    private void handleFollowersEvent(String value) {
+        String[] parts = value.split(",");
+        String userId = parts[0];
+        String password = parts[1];
+
+        Result<List<String>> result = followers(userId, password);
+
+        if (result.isOK()) {
+            Log.info(() -> format("Followers for user %s retrieved successfully\n", userId));
+        } else {
+            Log.warning(() -> format("Failed to retrieve followers for user %s: %s\n", userId, result.error()));
+        }
+    }
+
+    private void handleLikeEvent(String value) {
+        String[] parts = value.split(",");
+        String shortId = parts[0];
+        String userId = parts[1];
+        boolean isLiked = Boolean.parseBoolean(parts[2]);
+        String password = parts[3];
+
+        Result<Void> result = like(shortId, userId, isLiked, password);
+
+        if (result.isOK()) {
+            Log.info(() -> format("Short %s liked/unliked by %s successfully\n", shortId, userId));
+        } else {
+            Log.warning(() -> format("Failed to like/unlike short %s by %s: %s\n", shortId, userId, result.error()));
+        }
+    }
+
+    private void handlelikesEvent(String value) {
+        String[] parts = value.split(",");
+        String shortId = parts[0];
+        String password = parts[1];
+
+        Result<List<String>> result = likes(shortId, password);
+
+        if (result.isOK()) {
+            Log.info(() -> format("Likes for short %s retrieved successfully\n", shortId));
+        } else {
+            Log.warning(() -> format("Failed to retrieve likes for short %s: %s\n", shortId, result.error()));
+        }
+    }
+
+    private void handleGetFeedEvent(String value) {
+        String[] parts = value.split(",");
+        String userId = parts[0];
+        String password = parts[1];
+
+        Result<List<String>> result = getFeed(userId, password);
+
+        if (result.isOK()) {
+            Log.info(() -> format("Feed for user %s retrieved successfully\n", userId));
+        } else {
+            Log.warning(() -> format("Failed to retrieve feed for user %s: %s\n", userId, result.error()));
+        }
     }
 
     protected void publishToKafka(String topic, String key, String value) {
@@ -187,7 +333,6 @@ public class JavaShorts implements ExtendedShorts {
                     for (var uri : BlobsClients.all())
                         candidates.putIfAbsent(uri.toString(), 0L);
 
-                    //updateBlobsRep();
                     ServiceMonitor.getInstance();
                     return candidates;
                 }
@@ -210,7 +355,7 @@ public class JavaShorts implements ExtendedShorts {
 
             // Publish event to Kafka
             String key = "createShort";
-            String value = String.format("%s,%s,%s", userId, shortId, blobURLs);
+            String value = String.format("origin:%s shortId:%s userId:%s blobsURLs:%s",IP.hostName(), shortId, userId, blobURLs);
             Log.info(() -> format("About to publish to Kafka : Action = %s, Info = %s\n", key, value));
             kafkaPublisher.publish(TOPIC_NAME, key, value);
 
@@ -234,6 +379,11 @@ public class JavaShorts implements ExtendedShorts {
 
         shrt.value().setBlobUrl(blobURLs);
 
+      // Publish event to Kafka
+        String key = "getShort";
+        String value = String.format("origin:%s shortId:%s", IP.hostName(), shortId);
+        kafkaPublisher.publish(TOPIC_NAME, key, value);
+
         return ok(shrt.value());
     }
 
@@ -255,6 +405,10 @@ public class JavaShorts implements ExtendedShorts {
                     for (String url : blobUrls)
                         BlobsClients.get().delete(url, Token.get());
 
+                    String key = "deleteShort";
+                    String value = String.format("origin:%s shortId:%s", IP.hostName(), shortId);
+                    kafkaPublisher.publish(TOPIC_NAME, key, value);
+
                 });
             });
         });
@@ -265,12 +419,23 @@ public class JavaShorts implements ExtendedShorts {
         Log.info(() -> format("getShorts : userId = %s\n", userId));
 
         var query = format("SELECT s.shortId FROM Short s WHERE s.ownerId = '%s'", userId);
+
+        // Publish event to Kafka
+        String key = "getShorts";
+        String value = String.format("origin:%s userId:%s", IP.hostName(), userId);
+        kafkaPublisher.publish(TOPIC_NAME, key, value);
+
         return errorOrValue(okUser(userId), DB.sql(query, String.class));
     }
 
     @Override
     public Result<Void> follow(String userId1, String userId2, boolean isFollowing, String password) {
         Log.info(() -> format("follow : userId1 = %s, userId2 = %s, isFollowing = %s, pwd = %s\n", userId1, userId2, isFollowing, password));
+
+        // Publish event to Kafka
+        String key = "getShorts";
+        String value = String.format("origin:%s userId1:%s userId2:%s isFollowing:%s pwd:%s", IP.hostName(), userId1, userId2, isFollowing, password);
+        kafkaPublisher.publish(TOPIC_NAME, key, value);
 
 
         return errorOrResult(okUser(userId1, password), user -> {
