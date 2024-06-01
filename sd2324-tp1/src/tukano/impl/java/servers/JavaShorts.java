@@ -89,6 +89,8 @@ public class JavaShorts implements ExtendedShorts {
         String me = IP.hostName();
         if (!origin.equals(me)) {
             // Handle the event based on key and value
+            Log.info("KAFKA: Processing request from origin = " + origin);
+            Log.info("KAFKA: Processing request with value = " + value);
             switch (key) {
                 case "createShort":
                     Log.info("KAFKA: Got request for createShort\n");
@@ -118,7 +120,7 @@ public class JavaShorts implements ExtendedShorts {
         Map<String, String> map = new HashMap<>();
         String[] pairs = value.split(" ");
         for (String pair : pairs) {
-            String[] keyValue = pair.split(":");
+            String[] keyValue = pair.split(",");
             if (keyValue.length == 2) {
                 map.put(keyValue[0], keyValue[1]);
             }
@@ -131,10 +133,13 @@ public class JavaShorts implements ExtendedShorts {
         Map<String, String> parsedValue = parseValue(value);
         String userId = parsedValue.get("userId");
         String shortId = parsedValue.get("shortId");
-        String blobServerURI = parsedValue.get("blobsURLs");
+        String blobServerURI = parsedValue.get("blobServerURI");
 
-        Short shrt = new Short(format("%s-rep", shortId), userId, blobServerURI);
-        shrt.setBlobUrl(buildBlobsURLs(shrt));
+        Log.info(() -> format("KAFKA: INITIAL VALUE = %s\n", value));
+        Log.info(() -> format("KAFKA: handleCreateShortEvent with userId = %s, shortId = %s, blobServerURI = %s\n", userId, shortId, blobServerURI));
+
+        Short shrt = new Short(format("%s", shortId), userId, blobServerURI);
+        //shrt.setBlobUrl(buildBlobsURLs(shrt));
 
         // Update database and cache
         DB.insertOne(shrt);
@@ -283,7 +288,7 @@ public class JavaShorts implements ExtendedShorts {
 
             // Publish event to Kafka
             String key = "createShort";
-            String value = String.format("origin:%s shortId:%s userId:%s blobsURLs:%s", IP.hostName(), shortId, userId, blobURLs);
+            String value = String.format("origin,%s shortId,%s userId,%s blobServerURI,%s", IP.hostName(), shortId, userId, blobServerURI);
             Log.info(() -> format("About to publish to Kafka : Action = %s, Info = %s\n", key, value));
             kafkaPublisher.publish(TOPIC_NAME, key, value);
 
@@ -329,7 +334,7 @@ public class JavaShorts implements ExtendedShorts {
                         BlobsClients.get().delete(url, Token.get());
 
                     String key = "deleteShort";
-                    String value = String.format("origin:%s shortId:%s", IP.hostName(), shortId);
+                    String value = String.format("origin,%s shortId,%s", IP.hostName(), shortId);
                     kafkaPublisher.publish(TOPIC_NAME, key, value);
 
                 });
@@ -359,7 +364,7 @@ public class JavaShorts implements ExtendedShorts {
 
             // Publish event to Kafka
             String key = "follow";
-            String value = String.format("origin:%s userId1:%s userId2:%s isFollowing:%s pwd:%s", IP.hostName(), userId1, userId2, isFollowing, password);
+            String value = String.format("origin,%s userId1,%s userId2,%s isFollowing,%s pwd,%s", IP.hostName(), userId1, userId2, isFollowing, password);
             kafkaPublisher.publish(TOPIC_NAME, key, value);
 
             return result;
@@ -392,7 +397,7 @@ public class JavaShorts implements ExtendedShorts {
 
             // Publish event to Kafka
             String key = "like";
-            String value = String.format("origin:%s shortId:%s userId:%s isLiked:%s pwd:%s", IP.hostName(), shortId, userId, isLiked, password);
+            String value = String.format("origin,%s shortId,%s userId,%s isLiked,%s pwd,%s", IP.hostName(), shortId, userId, isLiked, password);
             kafkaPublisher.publish(TOPIC_NAME, key, value);
 
             return result;
